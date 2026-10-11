@@ -20,7 +20,9 @@ class Failure(Exception):
 
 
 def run(args, *, capture=True, cwd=None, check=True, input=None):
-    p = subprocess.run(args, cwd=cwd, input=input, text=True,
+    environment = os.environ.copy()
+    environment['GIT_TERMINAL_PROMPT'] = '0'
+    p = subprocess.run(args, cwd=cwd, input=input, text=True, env=environment,
                        stdout=subprocess.PIPE if capture else None,
                        stderr=subprocess.PIPE if capture else None)
     if check and p.returncode:
@@ -134,7 +136,9 @@ def workspace(catalog_path, directory, output):
         if not target.exists():
             run(['git', 'clone', '--branch', branch, url, str(target)], capture=False)
         elif not (target / '.git').exists():
-            raise Failure(f'{target} exists but is not a Git checkout')
+            print(f'{name}: source-only directory preserved; migrate it through the repository onboarding runbook', file=sys.stderr)
+            revisions['local_checkouts'][name] = None
+            continue
         origin = run(['git', 'remote', 'get-url', 'origin'], cwd=target, check=False)
         if origin not in (url, url[:-4], f'git@github.com:{org}/{name}.git'):
             print(f'{name}: origin differs; checkout unchanged, see migration runbook', file=sys.stderr)
@@ -229,7 +233,15 @@ def import_external(stack, config_path, catalog_path):
         import_one(stack, config_path, known, f'github_repository.managed["{name}"]', name)
         if repo['size'] > 0:
             import_one(stack, config_path, known, f'github_branch_default.managed["{name}"]', name)
-        protections = gh(f'/repos/{org}/{name}/branches/{definition["default_branch"]}/protection', c, optional=True)
+        try:
+            protections = gh(f'/repos/{org}/{name}/branches/{definition["default_branch"]}/protection', c, optional=True)
+        except Failure as error:
+            # GitHub Free rejects this endpoint for private repositories. The
+            # following apply publishes audited repositories before protection.
+            if repo['private'] and str(error).endswith('returned HTTP 403'):
+                protections = None
+            else:
+                raise
         if protections:
             import_one(stack, config_path, known, f'github_branch_protection.managed["{name}"]', f'{name}:{definition["default_branch"]}')
         if definition['atlantis']:

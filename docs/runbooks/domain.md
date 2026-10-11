@@ -16,3 +16,8 @@ Never add interactive Cloudflare Access authentication to /events: GitHub cannot
 Confirm cloudflared is Ready, the public root returns 404, and an unsigned POST /events is rejected.
 Actual signed deliveries appear in GitHub webhook Recent deliveries. Cloudflare/DNS persists when
 k3d is removed and is imported into new state on rebuild.
+
+When adopting a tunnel created in the Cloudflare dashboard, set `existing_tunnel_id`
+in your private bootstrap configuration to its UUID. Bootstrap verifies that tunnel
+in the configured account and imports it even when its old name differs. OpenTofu
+then owns its name, webhook-only ingress, connector token, and DNS record.

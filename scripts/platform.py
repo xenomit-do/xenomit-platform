@@ -261,7 +261,16 @@ def import_external(stack, config_path, catalog_path):
                 import_one(stack, config_path, known, f'github_team_repository.maintainers["{repo["name"]}"]', f'{team["id"]}:{repo["name"]}')
     account, zone = c['cloudflare_account_id'], c['cloudflare_zone_id']
     name = 'xenomit-' + c['environment_id'] + '-atlantis'
-    tunnels = cf(f'/accounts/{account}/cfd_tunnel?is_deleted=false&name={urllib.parse.quote(name)}', c)
+    existing_id = c.get('existing_tunnel_id')
+    if existing_id:
+        if not re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}', existing_id):
+            raise Failure('existing_tunnel_id must be a Cloudflare tunnel UUID')
+        tunnel = cf(f'/accounts/{account}/cfd_tunnel/{existing_id}', c)
+        if tunnel.get('deleted_at'):
+            raise Failure('The explicitly selected Cloudflare tunnel has been deleted')
+        tunnels = [tunnel]
+    else:
+        tunnels = cf(f'/accounts/{account}/cfd_tunnel?is_deleted=false&name={urllib.parse.quote(name)}', c)
     if len(tunnels) > 1:
         raise Failure('Multiple tunnels match environment; import is ambiguous')
     if tunnels:

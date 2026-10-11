@@ -440,7 +440,7 @@ def reconcile(catalog_path, config_path, dry_run=False):
         return
     for repo in unknown:
         catalog['repositories'][repo['name']] = {'default_branch': repo['default_branch'], 'workspace': True,
-          'ci_profile': 'source', 'required_checks': ['source-check'], 'atlantis': False, 'archived': repo['archived']}
+          'ci_profile': 'source', 'required_checks': ['source-check / source-check'], 'atlantis': False, 'archived': repo['archived']}
     if dry_run:
         print('\n'.join(r['name'] for r in unknown))
         return

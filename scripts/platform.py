@@ -418,7 +418,9 @@ def verify(catalog_path, config_path):
     for path, method, body in [('/', 'GET', None), ('/events', 'POST', b'{}')]:
         try:
             req = urllib.request.Request(host + path, method=method, data=body,
-                                         headers={'Content-Type': 'application/json', 'X-GitHub-Event': 'ping'})
+                                         headers={'Content-Type': 'application/json', 'X-GitHub-Event': 'ping',
+                                                  'User-Agent': 'xenomit-platform-verifier/1.0',
+                                                  'X-Hub-Signature-256': 'sha256=' + '0' * 64})
             urllib.request.urlopen(req, timeout=20)
             failures.append(path + ': unexpectedly accepted public request')
         except urllib.error.HTTPError as err:

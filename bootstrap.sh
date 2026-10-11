@@ -36,9 +36,10 @@ k3d kubeconfig get "$cluster" >"$KUBECONFIG"
 chmod 600 "$KUBECONFIG"
 issuer=$(kubectl get --raw=/.well-known/openid-configuration | jq -r .issuer)
 python3 - "$state/runtime.auto.tfvars.json" "$issuer" <<'PY'
-import json,sys
+import json,sys,subprocess
 p=sys.argv[1]
 c=json.load(open(p)); c['config']['jwt_issuer']=sys.argv[2]
+c['config']['jwt_validation_pubkeys']=json.loads(subprocess.check_output(['python3', str(__import__('pathlib').Path(p).parent.parent / 'xenomit-platform/scripts/kubernetes-jwt-keys.py')]))
 json.dump(c,open(p,'w'),indent=2)
 PY
 kubectl --context "$TF_VAR_kube_context" wait node --all --for=condition=Ready --timeout=180s

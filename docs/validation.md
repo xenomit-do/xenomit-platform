@@ -1,3 +1,7 @@
+# Current live validation
+
+See [deployment and migration record](deployment-record.md) for the live bootstrap evidence and remaining acceptance work. The local implementation notes below predate the live deployment.
+
 # Implementation validation
 
 Validated locally on 2026-10-11:

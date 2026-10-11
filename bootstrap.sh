@@ -60,6 +60,7 @@ while read -r project path; do
     curl -fsS http://127.0.0.1:18200/v1/sys/health >/dev/null || die "Vault did not become ready; inspect $state/vault-forward.log"
     curl -fsS http://127.0.0.1:18200/v1/sys/health >/dev/null || die "Vault did not become ready; inspect $state/vault-forward.log"
     export TF_VAR_vault_address=http://127.0.0.1:18200
+    python3 "$ROOT/scripts/platform.py" import-vault "$ROOT/$path" "$state/runtime.auto.tfvars.json"
   fi
   tofu -chdir="$ROOT/$path" apply -lock-timeout=5m -var-file="$state/runtime.auto.tfvars.json" -auto-approve
   if [[ $project == vault ]]; then

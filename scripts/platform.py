@@ -211,6 +211,19 @@ def import_identity(stack, config_path):
             raise Failure('Identity state lost while credential Secret survives. Restore its state; do not reset live credentials')
 
 
+def import_vault(stack, config_path):
+    import base64, urllib.request
+    known = state_addresses(stack)
+    secret = kube_json(['get', 'secret', 'vault-admin', '-n', 'xenomit-system'])
+    token = base64.b64decode(secret['data']['token']).decode()
+    address = os.environ.get('TF_VAR_vault_address', 'http://vault.xenomit-system.svc.cluster.local:8200')
+    request = urllib.request.Request(address + '/v1/sys/auth', headers={'X-Vault-Token': token})
+    with urllib.request.urlopen(request) as response:
+        mounts = json.load(response)['data']
+    if 'jwt/' in mounts:
+        import_one(stack, config_path, known, 'vault_jwt_auth_backend.jwt', 'jwt')
+
+
 def audit_private(name, remote, c):
     if remote is None or not remote['private']:
         return
@@ -470,12 +483,12 @@ def onboard(catalog_path, config_path, template_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('operation', choices=['prepare', 'workspace', 'lease', 'import-identity', 'import-external', 'inventory', 'verify', 'reconcile', 'onboard'])
+    parser.add_argument('operation', choices=['prepare', 'workspace', 'lease', 'import-identity', 'import-external', 'import-vault', 'inventory', 'verify', 'reconcile', 'onboard'])
     parser.add_argument('arguments', nargs='*')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     functions = {'prepare': prepare, 'workspace': workspace, 'lease': lease,
-                 'import-identity': import_identity, 'import-external': import_external,
+                 'import-identity': import_identity, 'import-external': import_external, 'import-vault': import_vault,
                  'inventory': inventory, 'verify': verify, 'onboard': onboard}
     try:
         if args.operation == 'reconcile':

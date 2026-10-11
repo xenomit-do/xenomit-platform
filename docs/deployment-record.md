@@ -10,7 +10,7 @@ Argo CD, Atlantis, Cloudflare connector, ARC, Kyverno, Vault, PostgreSQL, OpenOb
 
 ## Live acceptance evidence
 
-- All 24 catalog repositories are public, have automatic PR head deletion enabled and share the managed default-branch policy: PRs, strict required checks, resolved conversations, administrator enforcement, no force pushes or branch deletion, and zero mandatory human reviews.
+- All 23 catalog repositories are public, have automatic PR head deletion enabled and share the managed default-branch policy: PRs, strict required checks, resolved conversations, administrator enforcement, no force pushes or branch deletion, and zero mandatory human reviews.
 - CI onboarding PRs merged after checks on managed runners. Source migration PRs preserve surviving ancestry without force-overwriting GitHub history; repositories without surviving commits received audited source imports.
 - [Platform PR #1](https://github.com/xenomit-do/xenomit-platform/pull/1) completed Atlantis plan, apply and automerge. [Deployments PR #1](https://github.com/xenomit-do/xenomit-deployments/pull/1) upgraded the runner images; merged Applications reconcile main.
 - `https://atlantis.xenomit.com/` returned 404; `/events` rejected an invalid signature with 400. The public tunnel routes only the webhook endpoint. The UI remains local.
@@ -35,3 +35,7 @@ A destructive teardown/rebuild and reproduction on a second machine have not bee
 From the Linux platform checkout, use `./bootstrap.sh`, `./verify.sh` and `./destroy.sh` as documented in `docs/runbooks/`. Bootstrap preserves dirty or divergent worktrees and reports them. Apply repository/catalog changes through a protected PR; Atlantis owns the apply path, with host applies reserved for documented Atlantis self-upgrades. Argo owns runner scale sets and application/fleet manifests; the operator owns only bot resources derived from fleet specifications.
 
 Do not manually add permanent repositories, runner configuration or Argo registrations. Follow repository onboarding so the catalog derives protection, integrations, CI access and workspace inclusion together.
+
+## Ruffle ownership exception
+
+At the owner’s request, `xenomit-do/ruffle` was deleted and removed from the platform catalog. Ruffle remains locally preserved and is managed separately by its owner. Bootstrap must not recreate or publish it.

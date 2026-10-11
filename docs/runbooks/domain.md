@@ -17,6 +17,17 @@ Confirm cloudflared is Ready, the public root returns 404, and an unsigned POST 
 Actual signed deliveries appear in GitHub webhook Recent deliveries. Cloudflare/DNS persists when
 k3d is removed and is imported into new state on rebuild.
 
+The same tunnel also fronts the interactive UIs: argocd.<domain>, vault.<domain>, and
+observe.<domain>. Each has a CNAME to the tunnel, an ingress rule placed before the
+atlantis /events rule, and a self-hosted Cloudflare Access application whose only policy
+allows the owner email (y.kaan.aydogdu@gmail.com) — visitors get the Access login, so a
+configured One-Time-PIN (or other) identity provider in the Zero Trust account is required
+to sign in. Origins are plain HTTP inside the cluster: argocd-server (server.insecure),
+the dev-mode Helm Vault service in xenomit-system, and openobserve in observability. The
+ops/vault Docker Vault is a different deployment; its self-signed server certificate does
+not carry a vault.<domain> SAN, so do not point the tunnel at it without regenerating
+ops/vault/tls SANs or setting noTLSVerify on the origin.
+
 When adopting a tunnel created in the Cloudflare dashboard, set `existing_tunnel_id`
 in your private bootstrap configuration to its UUID. Bootstrap verifies that tunnel
 in the configured account and imports it even when its old name differs. OpenTofu

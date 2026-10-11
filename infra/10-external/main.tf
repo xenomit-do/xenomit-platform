@@ -3,6 +3,15 @@ locals {
   repos    = local.catalog.repositories
   org      = local.catalog.organization
   hostname = "atlantis.${var.config.domain}"
+  # Interactive UIs exposed through the same tunnel. Each gets a CNAME, an
+  # ingress rule ahead of the atlantis /events rule, and a self-hosted Access
+  # application gated to the platform owner email.
+  exposed_apps = {
+    argocd  = "http://argocd-server.argocd.svc.cluster.local"
+    vault   = "http://vault.xenomit-system.svc.cluster.local:8200"
+    observe = "http://openobserve.observability.svc.cluster.local:5080"
+  }
+  access_email = "y.kaan.aydogdu@gmail.com"
 }
 data "kubernetes_secret_v1" "credentials" {
   metadata {
@@ -115,6 +124,13 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "atlantis" {
   account_id = var.config.cloudflare_account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.atlantis.id
   config {
+    dynamic "ingress_rule" {
+      for_each = local.exposed_apps
+      content {
+        hostname = "${ingress_rule.key}.${var.config.domain}"
+        service  = ingress_rule.value
+      }
+    }
     ingress_rule {
       hostname = local.hostname
       path     = "^/events$"
@@ -123,6 +139,36 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "atlantis" {
     ingress_rule {
       service = "http_status:404"
     }
+  }
+}
+resource "cloudflare_record" "apps" {
+  for_each = local.exposed_apps
+  zone_id  = var.config.cloudflare_zone_id
+  name     = each.key
+  type     = "CNAME"
+  content  = "${cloudflare_zero_trust_tunnel_cloudflared.atlantis.id}.cfargotunnel.com"
+  proxied  = true
+  ttl      = 1
+}
+resource "cloudflare_zero_trust_access_application" "apps" {
+  for_each             = local.exposed_apps
+  account_id           = var.config.cloudflare_account_id
+  name                 = each.key
+  domain               = "${each.key}.${var.config.domain}"
+  type                 = "self_hosted"
+  session_duration     = "24h"
+  app_launcher_visible = true
+  skip_interstitial    = true
+}
+resource "cloudflare_zero_trust_access_policy" "apps" {
+  for_each       = local.exposed_apps
+  account_id     = var.config.cloudflare_account_id
+  application_id = cloudflare_zero_trust_access_application.apps[each.key].id
+  name           = "owner"
+  precedence     = 1
+  decision       = "allow"
+  include {
+    email = [local.access_email]
   }
 }
 resource "cloudflare_record" "atlantis" {

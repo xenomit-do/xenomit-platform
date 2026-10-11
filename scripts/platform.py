@@ -139,6 +139,10 @@ def workspace(catalog_path, directory, output):
             print(f'{name}: source-only directory preserved; migrate it through the repository onboarding runbook', file=sys.stderr)
             revisions['local_checkouts'][name] = None
             continue
+        if not run(['git', 'rev-parse', '--verify', 'HEAD'], cwd=target, check=False):
+            print(f'{name}: unborn Git checkout preserved; import its source through onboarding', file=sys.stderr)
+            revisions['local_checkouts'][name] = None
+            continue
         origin = run(['git', 'remote', 'get-url', 'origin'], cwd=target, check=False)
         if origin not in (url, url[:-4], f'git@github.com:{org}/{name}.git'):
             print(f'{name}: origin differs; checkout unchanged, see migration runbook', file=sys.stderr)
@@ -205,6 +209,28 @@ def import_identity(stack, config_path):
         meta = secret['metadata']
         if meta['name'] == 'platform-credentials' and 'random_password.webhook' not in known:
             raise Failure('Identity state lost while credential Secret survives. Restore its state; do not reset live credentials')
+
+
+def import_vault(stack, config_path):
+    import base64, urllib.request
+    known = state_addresses(stack)
+    secret = kube_json(['get', 'secret', 'vault-admin', '-n', 'xenomit-system'])
+    token = base64.b64decode(secret['data']['token']).decode()
+    address = os.environ.get('TF_VAR_vault_address', 'http://vault.xenomit-system.svc.cluster.local:8200')
+    request = urllib.request.Request(address + '/v1/sys/auth', headers={'X-Vault-Token': token})
+    with urllib.request.urlopen(request) as response:
+        mounts = json.load(response)['data']
+    if 'jwt/' in mounts and 'vault_jwt_auth_backend.jwt' not in known:
+        # A failed provider create can leave an unconfigured mount. Complete
+        # its Git-defined configuration so provider Read can import it.
+        config = read(config_path)['config']
+        body = json.dumps({'jwt_validation_pubkeys': config['jwt_validation_pubkeys'],
+                           'bound_issuer': config['jwt_issuer']}).encode()
+        request = urllib.request.Request(address + '/v1/auth/jwt/config', data=body,
+            headers={'X-Vault-Token': token, 'Content-Type': 'application/json'}, method='PUT')
+        with urllib.request.urlopen(request):
+            pass
+        import_one(stack, config_path, known, 'vault_jwt_auth_backend.jwt', 'jwt')
 
 
 def audit_private(name, remote, c):
@@ -328,6 +354,7 @@ def verify(catalog_path, config_path):
     live = pages('/orgs/' + catalog['organization'] + '/repos?type=all', c)
     for repo in live:
         name = repo['name']
+        repo = gh(f'/repos/{catalog["organization"]}/{name}', c)
         definition = catalog['repositories'].get(name)
         if definition is None:
             failures.append(f'{name}: missing from catalog')
@@ -391,7 +418,9 @@ def verify(catalog_path, config_path):
     for path, method, body in [('/', 'GET', None), ('/events', 'POST', b'{}')]:
         try:
             req = urllib.request.Request(host + path, method=method, data=body,
-                                         headers={'Content-Type': 'application/json', 'X-GitHub-Event': 'ping'})
+                                         headers={'Content-Type': 'application/json', 'X-GitHub-Event': 'ping',
+                                                  'User-Agent': 'xenomit-platform-verifier/1.0',
+                                                  'X-Hub-Signature-256': 'sha256=' + '0' * 64})
             urllib.request.urlopen(req, timeout=20)
             failures.append(path + ': unexpectedly accepted public request')
         except urllib.error.HTTPError as err:
@@ -414,7 +443,7 @@ def reconcile(catalog_path, config_path, dry_run=False):
         return
     for repo in unknown:
         catalog['repositories'][repo['name']] = {'default_branch': repo['default_branch'], 'workspace': True,
-          'ci_profile': 'source', 'required_checks': ['source-check'], 'atlantis': False, 'archived': repo['archived']}
+          'ci_profile': 'source', 'required_checks': ['source-check / source-check'], 'atlantis': False, 'archived': repo['archived']}
     if dry_run:
         print('\n'.join(r['name'] for r in unknown))
         return
@@ -466,12 +495,12 @@ def onboard(catalog_path, config_path, template_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('operation', choices=['prepare', 'workspace', 'lease', 'import-identity', 'import-external', 'inventory', 'verify', 'reconcile', 'onboard'])
+    parser.add_argument('operation', choices=['prepare', 'workspace', 'lease', 'import-identity', 'import-external', 'import-vault', 'inventory', 'verify', 'reconcile', 'onboard'])
     parser.add_argument('arguments', nargs='*')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     functions = {'prepare': prepare, 'workspace': workspace, 'lease': lease,
-                 'import-identity': import_identity, 'import-external': import_external,
+                 'import-identity': import_identity, 'import-external': import_external, 'import-vault': import_vault,
                  'inventory': inventory, 'verify': verify, 'onboard': onboard}
     try:
         if args.operation == 'reconcile':

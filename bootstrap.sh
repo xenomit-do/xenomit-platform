@@ -36,9 +36,10 @@ k3d kubeconfig get "$cluster" >"$KUBECONFIG"
 chmod 600 "$KUBECONFIG"
 issuer=$(kubectl get --raw=/.well-known/openid-configuration | jq -r .issuer)
 python3 - "$state/runtime.auto.tfvars.json" "$issuer" <<'PY'
-import json,sys
+import json,sys,subprocess
 p=sys.argv[1]
 c=json.load(open(p)); c['config']['jwt_issuer']=sys.argv[2]
+c['config']['jwt_validation_pubkeys']=json.loads(subprocess.check_output(['python3', str(__import__('pathlib').Path(p).parent.parent / 'xenomit-platform/scripts/kubernetes-jwt-keys.py')]))
 json.dump(c,open(p,'w'),indent=2)
 PY
 kubectl --context "$TF_VAR_kube_context" wait node --all --for=condition=Ready --timeout=180s
@@ -59,6 +60,7 @@ while read -r project path; do
     curl -fsS http://127.0.0.1:18200/v1/sys/health >/dev/null || die "Vault did not become ready; inspect $state/vault-forward.log"
     curl -fsS http://127.0.0.1:18200/v1/sys/health >/dev/null || die "Vault did not become ready; inspect $state/vault-forward.log"
     export TF_VAR_vault_address=http://127.0.0.1:18200
+    python3 "$ROOT/scripts/platform.py" import-vault "$ROOT/$path" "$state/runtime.auto.tfvars.json"
   fi
   tofu -chdir="$ROOT/$path" apply -lock-timeout=5m -var-file="$state/runtime.auto.tfvars.json" -auto-approve
   if [[ $project == vault ]]; then

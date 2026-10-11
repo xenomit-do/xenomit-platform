@@ -21,3 +21,5 @@ When adopting a tunnel created in the Cloudflare dashboard, set `existing_tunnel
 in your private bootstrap configuration to its UUID. Bootstrap verifies that tunnel
 in the configured account and imports it even when its old name differs. OpenTofu
 then owns its name, webhook-only ingress, connector token, and DNS record.
+
+When adopting an existing dashboard tunnel, set `existing_tunnel_id` and `tunnel_name` in the private bootstrap configuration. Preserve its name and credentials. Cloudflare provider v4 omits `config_src` on import, so that immutable attribute is retained rather than forcing replacement.

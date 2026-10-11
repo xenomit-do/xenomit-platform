@@ -102,12 +102,13 @@ resource "github_repository_webhook" "atlantis" {
 }
 resource "cloudflare_zero_trust_tunnel_cloudflared" "atlantis" {
   account_id = var.config.cloudflare_account_id
-  name       = "xenomit-${var.config.environment_id}-atlantis"
+  name       = try(var.config.tunnel_name, "xenomit-${var.config.environment_id}-atlantis")
   secret     = data.kubernetes_secret_v1.credentials.data["TUNNEL_SECRET"]
   config_src = "cloudflare"
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [secret]
+    # Provider v4 import omits config_src; retain the existing remote tunnel.
+    ignore_changes  = [secret, config_src]
   }
 }
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "atlantis" {

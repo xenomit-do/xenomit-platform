@@ -354,6 +354,7 @@ def verify(catalog_path, config_path):
     live = pages('/orgs/' + catalog['organization'] + '/repos?type=all', c)
     for repo in live:
         name = repo['name']
+        repo = gh(f'/repos/{catalog["organization"]}/{name}', c)
         definition = catalog['repositories'].get(name)
         if definition is None:
             failures.append(f'{name}: missing from catalog')

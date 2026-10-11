@@ -291,7 +291,11 @@ def import_external(stack, config_path, catalog_path):
     if tunnels:
         ident = tunnels[0]['id']
         import_one(stack, config_path, known, 'cloudflare_zero_trust_tunnel_cloudflared.atlantis', f'{account}/{ident}')
-        import_one(stack, config_path, known, 'cloudflare_zero_trust_tunnel_cloudflared_config.atlantis', f'{account}/{ident}')
+        existing_config = cf(f'/accounts/{account}/cfd_tunnel/{ident}/configurations', c)
+        # A newly created dashboard tunnel has no ingress configuration yet.
+        # Importing that missing configuration crashes Cloudflare provider v4.
+        if existing_config and (existing_config.get('config') or {}).get('ingress'):
+            import_one(stack, config_path, known, 'cloudflare_zero_trust_tunnel_cloudflared_config.atlantis', f'{account}/{ident}')
     records = cf(f'/zones/{zone}/dns_records?type=CNAME&name=atlantis.{c["domain"]}', c)
     if len(records) > 1:
         raise Failure('Multiple DNS records match tunnel hostname')

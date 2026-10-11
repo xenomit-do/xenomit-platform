@@ -1,0 +1,191 @@
+# Phase 9: least-privilege RBAC for the control plane (docs/09 §9.1,
+# docs/security-review-rbac.md §Findings F1–F4).
+#
+# Single-process reality: `xenomit-orchestratord` runs the operator,
+# gateway AND api in one pod, so ServiceAccount `orchestrator` carries the
+# union of the former three SAs' grants. When the docs/04 §4.7 split lands,
+# re-split this file back into per-component grants.
+#
+# Layout: namespaced Roles wherever the resource allows; ClusterRoles ONLY
+# where the object is inherently cluster-scoped (Nodes watch, TokenReview).
+# Every grant is justified in-line; findings numbers refer to the review doc.
+#
+# F1 — watches/reconciles XenomitBot, BotRollout, Proxy and the
+# pods/serviceaccounts/configmaps/networkpolicies/leases they stamp out
+# (docs/04 §4.2), plus node cordon/drain for proactive handoff.
+# F2 — the embedded API writes the same desired-state surface (ADR-05):
+# panel calls become CR writes.
+# F3 — the embedded gateway verifies bot projected tokens via TokenReview
+# (docs/04 §4.5) — the ONE inherently cluster-scoped verb it needs
+# (tokenreviews is a non-namespaced API; there is no namespaced form).
+# F4 — the panel (SA xenomit-web-panel) holds no Kubernetes API need.
+---
+# ============ Role: orchestrator @ xenomit-bots ============
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orchestrator
+  namespace: xenomit-bots
+  labels:
+    app.kubernetes.io/name: xenomit-orchestratord
+    app.kubernetes.io/part-of: xenomit-control-plane
+rules:
+  # The desired-state surface (ADR-05). Namespaced CRDs — a Role covers them;
+  # status/finalizers subresources are how the reconciler writes back.
+  - apiGroups: ["fleet.xenomit.io"]
+    resources: ["xenomitbots", "botrollouts", "proxies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["fleet.xenomit.io"]
+    resources: ["xenomitbots/status", "botrollouts/status", "proxies/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["fleet.xenomit.io"]
+    resources: ["xenomitbots/finalizers", "botrollouts/finalizers", "proxies/finalizers"]
+    verbs: ["update"]
+  # Bot pods: bare Pods, operator-owned (ADR-04). Full lifecycle incl. delete
+  # on drain/terminate; get/list/watch for the pod informer.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Per-bot ServiceAccounts the operator stamps (docs/09 §9.2a); delete on
+  # bot removal. No secrets — credentials live in Vault, never in etcd.
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Per-bot generated ConfigMaps (configRevision — docs/04 §4.2).
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Per-bot egress NetworkPolicies rendered from 20-bot-egress.template.yaml.
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Fencing leases: epoch ownership per bot (docs/03 §3.7, ADR-12).
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Image pre-pull DaemonSet per rollout (docs/04 §4.4).
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Lifecycle events on CRs (kubectl describe is the operator's audit trail).
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orchestrator
+  namespace: xenomit-bots
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: orchestrator
+subjects:
+  - kind: ServiceAccount
+    name: orchestrator
+    namespace: xenomit-system      # the SA lives with the Deployment
+---
+# ============ Role: orchestrator @ xenomit-system ============
+# Fleet CRs may be placed in either of our namespaces (rollouts/proxies are
+# admin objects); keep the grants symmetrical so placement is a data
+# decision, not an RBAC edit. The former docs/04 §4.7 leader-election Lease
+# grant stays — it is what a future split needs anyway.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orchestrator
+  namespace: xenomit-system
+  labels:
+    app.kubernetes.io/name: xenomit-orchestratord
+    app.kubernetes.io/part-of: xenomit-control-plane
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["fleet.xenomit.io"]
+    resources: ["xenomitbots", "botrollouts", "proxies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["fleet.xenomit.io"]
+    resources: ["xenomitbots/status", "botrollouts/status", "proxies/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["fleet.xenomit.io"]
+    resources: ["xenomitbots/finalizers", "botrollouts/finalizers", "proxies/finalizers"]
+    verbs: ["update"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orchestrator
+  namespace: xenomit-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: orchestrator
+subjects:
+  - kind: ServiceAccount
+    name: orchestrator
+    namespace: xenomit-system
+---
+# ============ ClusterRole: nodes read ============
+# NodeController watches cordon/drain to hand bots off proactively
+# (docs/04 §4.2). Nodes are cluster-scoped — no namespaced alternative
+# exists. Read-only; the operator never cordons itself.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: orchestrator-nodes-read
+  labels:
+    app.kubernetes.io/name: xenomit-orchestratord
+    app.kubernetes.io/part-of: xenomit-control-plane
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: orchestrator-nodes-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: orchestrator-nodes-read
+subjects:
+  - kind: ServiceAccount
+    name: orchestrator
+    namespace: xenomit-system
+---
+# ============ ClusterRole: gateway TokenReview ============
+# The embedded gateway authenticates bot streams with the pod's projected
+# SA token (audience xenomit-gateway) verified via TokenReview
+# (docs/04 §4.5). tokenreviews.authentication.k8s.io is non-namespaced — a
+# ClusterRole is the only shape; the grant is a single verb on a single
+# resource.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: orchestrator-tokenreviews
+  labels:
+    app.kubernetes.io/name: xenomit-orchestratord
+    app.kubernetes.io/part-of: xenomit-control-plane
+rules:
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: orchestrator-tokenreviews
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: orchestrator-tokenreviews
+subjects:
+  - kind: ServiceAccount
+    name: orchestrator
+    namespace: xenomit-system

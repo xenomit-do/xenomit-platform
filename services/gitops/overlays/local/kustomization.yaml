@@ -1,0 +1,26 @@
+# Local overlay (k3d). Applied by Argo CD / Flux, or by hand:
+#   kubectl apply -k services/gitops/overlays/local
+#
+# Images are pinned BY DIGEST (docs/07 §7.2: "promote by digest, never by
+# mutable tag"). The images: entries below are rewritten in place by the
+# images workflow (ci/workflows/images.yml) — keep the field order
+# name → newName → digest; the pipeline's sed depends on it.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: xenomit-orchestrator
+    newName: xenomit-registry:5000/xenomit-orchestrator
+    digest: sha256:4929424ee175c4bcbc0d24d64a32de32fd68eabd3badcc6276f72a20a6821bc1
+
+# botd is intentionally absent: bots are not Deployments. A new botd
+# digest rolls out through a BotRollout CR (services/gitops/rollouts/), executed
+# by the RolloutController with the handoff protocol (docs/07 §7.3).
+
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: gitops
+    includeSelectors: false

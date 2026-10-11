@@ -1,0 +1,42 @@
+# Kyverno local profile. OpenTofu installs chart 3.9.1 with this file
+# (helm.tf). Single-node sizing: 4 controllers, 1 replica each.
+
+admissionController:
+  replicas: 1                    # webhook itself; single node => 1 is correct
+  container:
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits:   { cpu: 500m, memory: 384Mi }
+
+backgroundController:
+  replicas: 1                    # background scans into policy reports
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+
+cleanupController:
+  replicas: 1
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+
+reportsController:
+  replicas: 1
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+
+# The webhook must answer or pods in scope are denied (failurePolicy: Fail on
+# our policies). Single replica is fine on one node, but do NOT let the
+# webhook select itself out of Service endpoints silently — keep the stock
+# readiness probes.
+config:
+  # Kyverno skips these subjects by default; keep the defaults explicit.
+  excludeGroups:
+    - system:nodes
+    - system:kube-scheduler
+    - system:serviceaccount:kube-system
+    - system:network-policy-controller    # k3s embedded CNI — it creates pods
+  excludeRoles:
+    - system:node
+    - system:node-proxier

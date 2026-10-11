@@ -1,0 +1,266 @@
+{
+  "_comment": "SigNoz alert rules as code (docs/06 §6.7 alert list + docs/07 game-update page). Shape mirrors the SigNoz rule API (POST /api/v1/alerts); import one object at a time via the API or recreate in the UI. Thresholds come from the docs; tune matchType/evalWindow to your SigNoz version. Metric names: OTel dots → underscores in PromQL.",
+  "alerts": [
+    {
+      "alert": "XenomitBotsQuarantined",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "critical",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "sum(xenomit_bot_phase{phase=\"quarantined\"})", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 0,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "fleet", "runbook": "ci/docs/needsupdate-failsafe.md" },
+      "annotations": {
+        "summary": "Bot(s) quarantined — crash budget exceeded",
+        "description": "A quarantined bot never restarts on its own (docs/04 §4.4). Investigate the crash chain via traces filtered on xenomit.bot.id, then clear the quarantine manually."
+      },
+      "evalWindow": "5m0s",
+      "frequency": "1m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitSnapshotRestoreFailed",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "critical",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "increase(xenomit_snapshot_restore_total{outcome=\"failed\"}[15m])", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 0,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "fleet" },
+      "annotations": {
+        "summary": "A snapshot restore failed",
+        "description": "outcome=failed means a bot could not resume. If it happened during a rollout, the maxFailedRestores gate should already have paused it."
+      },
+      "evalWindow": "5m0s",
+      "frequency": "1m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitOfflineWindowSLOBreach",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "warning",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "histogram_quantile(0.95, sum by (le) (rate(xenomit_handoff_offline_window_bucket[1h])))", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "s"
+        },
+        "op": "1",
+        "target": 45,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "fleet", "slo": "offline-window-p95-45s" },
+      "annotations": {
+        "summary": "Handoff offline-window p95 above the 45 s budget",
+        "description": "SLO proposal docs/04 §4.4. Check drain waits vs login latency in the Rollout Progress dashboard."
+      },
+      "evalWindow": "60m0s",
+      "frequency": "5m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitProxyUnhealthyRatio",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "warning",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "sum(xenomit_proxy_health{state!=\"healthy\"}) / sum(xenomit_proxy_health)", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 0.2,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "fleet" },
+      "annotations": {
+        "summary": "More than 20% of proxies unhealthy",
+        "description": "Pool is thinning; bots on dead proxies get failover handoffs. Check pool health per provider in the Proxy Health dashboard."
+      },
+      "evalWindow": "15m0s",
+      "frequency": "5m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitGatewayFencedSpike",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "warning",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "increase(xenomit_gateway_fenced_total[10m])", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 5,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "fleet" },
+      "annotations": {
+        "summary": "Gateway fencing rejections spiking",
+        "description": "Stale-epoch streams refused — usually means two pods believe they own one bot (docs/03 §3.7). Correlate with rollout waves before anything else."
+      },
+      "evalWindow": "10m0s",
+      "frequency": "1m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitNeedsUpdateGameChanged",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "critical",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "sum(xenomit_bot_phase{phase=\"needs_update\"})", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 0,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "fleet", "urgency": "high", "runbook": "ci/docs/needsupdate-failsafe.md" },
+      "annotations": {
+        "summary": "Bots parked in NeedsUpdate — the game changed",
+        "description": "Fleet-level event (exit 68 self-drains). Expected while a packet update flows detect → PR → fast-lane rollout. If this stays >0 and no update PR exists, check the packet-updater CronJob."
+      },
+      "evalWindow": "10m0s",
+      "frequency": "1m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitLoginFailureRateHigh",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "warning",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "sum(rate(xenomit_login_duration_count{outcome=\"failed\"}[15m])) / sum(rate(xenomit_login_duration_count[15m]))", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 0.02,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "fleet", "note": "extra — mirrors the rollout gate (docs/06 §6.6)" },
+      "annotations": {
+        "summary": "Login failure rate above the 2% rollout-gate level",
+        "description": "Credentials rejected / CAPTCHA / proxy trouble, or a game change in progress. During a rollout this is the same data maxLoginFailureRatePermille reads."
+      },
+      "evalWindow": "15m0s",
+      "frequency": "1m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitVaultSealed",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "critical",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "vault_core_unsealed == 0", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 0,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "platform", "runbook": "runbooks/vault-unseal.md" },
+      "annotations": {
+        "summary": "Vault is SEALED — new/restarting bots cannot read credentials",
+        "description": "docs/09 §9.2a named risk: seals happen on every container restart. Running bots keep working; Pending bots wait for unseal. Requires the vault.hcl telemetry stanza + the otel prometheus scrape (ops/k8s/40-otel-collector.yaml). Runbook: runbooks/vault-unseal.md."
+      },
+      "evalWindow": "5m0s",
+      "frequency": "1m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    },
+    {
+      "alert": "XenomitVaultUnreachable",
+      "alertType": "METRIC_BASED_ALERT",
+      "ruleType": "RULE_TYPE_THRESHOLD",
+      "severity": "warning",
+      "condition": {
+        "compositeQuery": {
+          "queryType": "promql",
+          "promQueries": {
+            "A": { "query": "up{service_name=\"vault\"} == 0", "disabled": false }
+          },
+          "panelType": "TIME_SERIES",
+          "unit": "none"
+        },
+        "op": "1",
+        "target": 0,
+        "matchType": "1",
+        "selectedQueryName": "A"
+      },
+      "labels": { "team": "platform", "runbook": "runbooks/vault-unseal.md" },
+      "annotations": {
+        "summary": "Vault metrics endpoint unreachable (container down, or scrape path broken)",
+        "description": "The otel collector's vault scrape is failing. If Vault is also sealed this fires together with XenomitVaultSealed; if it fires alone the container or the vault.xenomit-system ExternalName path is down."
+      },
+      "evalWindow": "5m0s",
+      "frequency": "1m0s",
+      "broadcastToAll": false,
+      "disabled": false
+    }
+  ]
+}

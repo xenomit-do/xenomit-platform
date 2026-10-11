@@ -1,0 +1,7 @@
+version: 3
+automerge: true
+projects:
+  - name: platform
+    dir: .
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6

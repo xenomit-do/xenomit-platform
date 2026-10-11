@@ -1,0 +1,22 @@
+# Pods reach Vault through this stable name:
+#   https://vault.xenomit-system.svc.cluster.local:8200
+# Vault is a Docker container beside the cluster (docs/11 §11.1, 09 §9.2a).
+# ExternalName -> host.k3d.internal, which k3d publishes inside the cluster and
+# resolves to the host. If a future k3d/Docker-Desktop combination stops
+# resolving it, replace this with a selector-less Service + manual Endpoints
+# pointing at the host IP (and update ops/vault tls SANs accordingly).
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: xenomit-system
+  labels:
+    app.kubernetes.io/part-of: xenomit
+spec:
+  type: ExternalName
+  externalName: host.k3d.internal
+  ports:
+    - name: https
+      port: 8200
+      targetPort: 8200
+      protocol: TCP

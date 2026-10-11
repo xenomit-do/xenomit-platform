@@ -1,0 +1,37 @@
+# Per-bot resource defaults (docs/11 §11.3, docs/04 §4.1 pod template).
+# 64 MiB request / 256 MiB limit per bot is the phase-1 estimate; the 50-bot
+# benchmark replaces it with a measured value — update both places together.
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: bot-defaults
+  namespace: xenomit-bots
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      default:
+        cpu: 250m
+        memory: 256Mi
+      max:
+        memory: 512Mi        # a bot that needs more than this is a bug, not a size
+      min:
+        memory: 32Mi
+---
+# Fleet ceiling: ~50 bots at 256 MiB limit ≈ 12.8 GiB worst case plus operator
+# surge; pod count bounded so a spec bug can't fill the node.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: bot-fleet-budget
+  namespace: xenomit-bots
+spec:
+  hard:
+    pods: "60"
+    requests.cpu: "5"
+    requests.memory: 5Gi
+    limits.cpu: "16"
+    limits.memory: 16Gi

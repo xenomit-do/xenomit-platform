@@ -1,0 +1,101 @@
+# Nightly fault-injection & soak (docs/07 §7.2 stage 3).
+#
+# Runs on the self-hosted runner during idle hours — "free" only because the
+# machine is yours; it competes with live bots for CPU/RAM (docs/11 §11.3),
+# hence a 03:00 schedule and a serialized concurrency group.
+#
+# Placement: <repo-root>/.github/workflows/nightly.yml once the monorepo exists.
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"   # ~03:17 local; keep off peak bot hours
+  workflow_dispatch:
+    inputs:
+      duration_secs:
+        description: "Fleet soak duration (seconds)"
+        default: "1800"
+      bots:
+        description: "Fleet size"
+        default: "50"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-soak
+  cancel-in-progress: false
+
+jobs:
+  kill-matrix:
+    name: kill-matrix
+    runs-on: ${{ vars.CI_RUNNER || 'self-hosted' }}
+    timeout-minutes: 60
+    container:
+      image: rust:1.88-bookworm
+    defaults:
+      run:
+        working-directory: xenomit-botd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            xenomit-botd/target
+          key: cargo-botd-nightly-${{ hashFiles('xenomit-botd/Cargo.lock') }}
+          restore-keys: |
+            cargo-botd-
+
+      # The embedded mock-game suite (tests/mock_game.rs) exercises login,
+      # attach and clean exits end to end. The drain/restore kill-matrix of
+      # docs/03 §3.10 lands here as it is implemented (phase 3) — this job
+      # runs whatever the suite contains, including #[ignore]-gated long
+      # tests once they exist.
+      - name: botd integration suite
+        run: cargo test --locked --release
+
+  fleet-soak:
+    name: fleet-soak
+    runs-on: ${{ vars.CI_RUNNER || 'self-hosted' }}
+    timeout-minutes: 90
+    container:
+      image: rust:1.88-bookworm
+    defaults:
+      run:
+        working-directory: xenomit-botd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            xenomit-botd/target
+          key: cargo-botd-nightly-${{ hashFiles('xenomit-botd/Cargo.lock') }}
+          restore-keys: |
+            cargo-botd-
+
+      # 50 real botd processes against the embedded mock — measures
+      # RSS/CPU/login latency and writes BENCHMARK.md (uploaded as an
+      # artifact; compare against docs/11 §11.3 baselines).
+      - name: fleet benchmark
+        run: |
+          cargo bench --bench fleet --locked -- \
+            --bots "${{ inputs.bots || '50' }}" \
+            --duration-secs "${{ inputs.duration_secs || '1800' }}" \
+            --stagger-ms 80 \
+            --report "$GITHUB_WORKSPACE/FLEET-BENCH.md"
+
+      - name: Upload benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-bench-${{ github.run_number }}
+          path: FLEET-BENCH.md
+          retention-days: 30

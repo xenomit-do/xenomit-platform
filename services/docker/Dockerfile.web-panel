@@ -1,0 +1,53 @@
+#
+# `xenomit-web-panel` — Next.js panel (docs/08). Build context: repos root.
+#
+#   docker build -f ci/docker/Dockerfile.web-panel -t xenomit-web-panel .
+#
+# Runtime entrypoint invokes `tsx server.ts` directly; NODE_ENV is set
+# below, so the production image does not need dev-only `cross-env`.
+# `output: "standalone"` in next.config.ts would slim this further; left
+# as a follow-up so the app config stays untouched.
+
+FROM node:22-bookworm-slim AS deps
+WORKDIR /app/xenomit-web-panel
+COPY xenomit-web-panel/package.json xenomit-web-panel/package-lock.json ./
+COPY xenomit-web-panel/prisma ./prisma
+# Prisma engines need OpenSSL on bookworm-slim; production uses the Postgres
+# schema (K8s injects a postgresql:// DATABASE_URL — see ci/gitops/panel).
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+# Full install (dev deps included) — the build needs typescript/vitest.
+RUN npm ci \
+ && npx prisma generate --schema prisma/postgres/schema.prisma
+
+FROM node:22-bookworm-slim AS build
+WORKDIR /app/xenomit-web-panel
+COPY --from=deps /app/xenomit-web-panel/node_modules ./node_modules
+COPY xenomit-web-panel/ ./
+ENV NEXT_TELEMETRY_DISABLED=1 DEV_LOGIN=false
+RUN npm run build
+
+FROM node:22-bookworm-slim AS runner
+WORKDIR /app/xenomit-web-panel
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 DEV_LOGIN=false
+ENV PATH=/app/runtime-tools/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+# Production deps + tsx pinned to the repo's devDependency version —
+# Installed separately under /app/runtime-tools.
+COPY xenomit-web-panel/package.json xenomit-web-panel/package-lock.json ./
+# The root postinstall invokes Prisma CLI, which is a dev dependency. Generate
+# the client in the full deps stage, then install runtime packages without
+# lifecycle scripts and copy the generated client into this runner.
+RUN npm ci --omit=dev --ignore-scripts \
+ && npm install --prefix /app/runtime-tools --no-save --ignore-scripts --package-lock=false tsx@4.23.15 \
+ && npm cache clean --force
+COPY --from=deps /app/xenomit-web-panel/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/xenomit-web-panel/.next ./.next
+COPY xenomit-web-panel/server.ts xenomit-web-panel/next.config.ts xenomit-web-panel/tsconfig.json ./
+COPY xenomit-web-panel/src ./src
+COPY xenomit-web-panel/shared ./shared
+COPY xenomit-web-panel/prisma ./prisma
+USER node
+EXPOSE 3000
+CMD ["tsx", "server.ts"]

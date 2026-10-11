@@ -1,0 +1,5 @@
+# Generated at bootstrap time — contains secret material or environment-
+# specific rendered values. Never commit any of it.
+vault/tls/
+vault/cluster-keys.json
+k8s/rendered/

@@ -1,0 +1,87 @@
+# SLO definitions as code (Phase 9). Ratified targets come from docs/04 §4.4
+# ("SLO proposals"); this file is the machine-readable version that
+# alerts/signoz-slo-alerts.json and dashboards/slo-overview.json implement.
+#
+# Burn-rate math (Google SRE workbook, multiwindow):
+#   error budget = 1 - target   (consumed over the 30d compliance window)
+#   fast burn  = 14.4 x budget over a 1h window   -> page: budget gone in ~2d
+#   slow burn  =  6.0 x budget over a 6h window   -> ticket: budget gone in ~5d
+#
+# Honest caveat: at ~50 bots the denominators are tiny — a single failed
+# restore can trip the fast-burn ratio for an hour. Burn alerts are
+# noise-tolerant by design (long evalWindows + 'for' semantics in SigNoz);
+# do not tighten the factors to compensate for sparse traffic — widen the
+# windows instead.
+version: 1
+window: 30d
+slos:
+  - name: fleet-availability
+    description: >-
+      Share of desired bots in a live phase. User-caused states
+      (needs_human, paused, stopped, invalid_config) are excluded per
+      docs/04 §4.4 — the SLO measures platform health, not user choices.
+    sli: >-
+      sum(xenomit_bot_phase{phase=~"running|armed|draining|snapshotting|starting"})
+      / sum(xenomit_bot_phase{phase!~"needs_human|paused|stopped|invalid_config"})
+    error_rate: "1 - <sli>"
+    target: 0.995
+    budget: 0.005
+    burn:
+      fast: { window: 1h, factor: 14.4, threshold: 0.072 }
+      slow: { window: 6h, factor: 6.0,  threshold: 0.030 }
+  - name: handoff-offline-window-p95
+    description: >-
+      p95 seconds a bot is unreachable during a drain→activate handoff
+      (docs/04 §4.4). Latency SLO, not ratio — alerts are threshold + a
+      slow-window variant, not burn factors.
+    sli: >-
+      histogram_quantile(0.95, sum by (le)
+        (rate(xenomit_handoff_offline_window_bucket[1h])))
+    target: 45        # seconds
+    budget: null
+    burn:
+      fast: { window: 1h, threshold: 45 }
+      slow: { window: 6h, threshold: 45 }
+  - name: snapshot-restore-success
+    description: >-
+      Share of restores that finish clean or degraded (not failed) —
+      docs/04 §4.4 "clean-restore success ≥ 99%".
+    sli: >-
+      1 - (sum(increase(xenomit_snapshot_restore_total{outcome="failed"}[WINDOW]))
+           / sum(increase(xenomit_snapshot_restore_total[WINDOW])))
+    error_rate: >-
+      sum(increase(xenomit_snapshot_restore_total{outcome="failed"}[WINDOW]))
+      / sum(increase(xenomit_snapshot_restore_total[WINDOW]))
+    target: 0.99
+    budget: 0.01
+    burn:
+      fast: { window: 1h, factor: 14.4, threshold: 0.144 }
+      slow: { window: 6h, factor: 6.0,  threshold: 0.060 }
+  - name: login-success
+    description: >-
+      Share of login attempts that succeed. NOTE: outcome="failed" currently
+      bundles platform-caused AND user-caused failures (bad password,
+      CAPTCHA) — until outcome gains a cause label this SLO under-reports
+      platform health; treat breaches as "investigate", not "page".
+    sli: >-
+      1 - (sum(rate(xenomit_login_duration_count{outcome="failed"}[WINDOW]))
+           / sum(rate(xenomit_login_duration_count[WINDOW])))
+    error_rate: >-
+      sum(rate(xenomit_login_duration_count{outcome="failed"}[WINDOW]))
+      / sum(rate(xenomit_login_duration_count[WINDOW]))
+    target: 0.98
+    budget: 0.02
+    burn:
+      fast: { window: 1h, factor: 14.4, threshold: 0.288 }
+      slow: { window: 6h, factor: 6.0,  threshold: 0.120 }
+  - name: drain-to-safe-point-p95
+    description: >-
+      p95 seconds from Drain sent to the bot's Drained ack (docs/04 §4.4
+      proposal). Definition only for now — the alert lands when
+      xenomit_handoff_duration is emitted (docs/06 §6.3 marks it pending).
+    sli: >-
+      histogram_quantile(0.95, sum by (le)
+        (rate(xenomit_handoff_duration_bucket[1h])))
+    target: 120       # seconds
+    budget: null
+    burn: null        # alert deferred until the metric exists

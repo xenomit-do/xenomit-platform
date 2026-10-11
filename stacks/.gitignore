@@ -1,0 +1,6 @@
+# Stack state is local and may hold generated passwords and tokens.
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/*.tfplan
+**/crash.log

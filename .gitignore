@@ -1,0 +1,12 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+crash.log
+
+# Local secrets (also skipped by the Gitea publish step in ops/bootstrap.ps1)
+ops/vault/cluster-keys.json
+ops/vault/tls/*.key
+ops/vault/tls/*.srl
+ops/k8s/rendered/

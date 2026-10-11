@@ -1,0 +1,21 @@
+# OpenTofu stacks applied by ops/bootstrap.ps1, in this order.
+#
+#   state    where the state lives
+#              local    a file next to the stack (admin stacks and the minimal bootstrap,
+#                       disposable together with the cluster)
+#              cluster  a Secret in the cluster, so Atlantis can take over from the first apply
+#   path     relative to the folder that holds the repository checkouts
+#
+# The minimal bootstrap is bootstrap/*. Every other change to the platform is OpenTofu in
+# one of the stacks below. Adding a change never means editing the script. How a stack gets
+# its variables: see "Stacks" in ops/BOOTSTRAP-IAC.md.
+
+local    xenomit-platform/bootstrap/1-services
+local    xenomit-platform/bootstrap/2-seed
+local    xenomit-platform/bootstrap/3-tokens
+local    xenomit-platform/stacks/10-github-token
+cluster  xenomit-platform
+cluster  xenomit-platform-gitea
+cluster  xenomit-platform-argocd
+local    xenomit-platform/stacks/30-gitea-extra
+local    xenomit-platform/stacks/90-post

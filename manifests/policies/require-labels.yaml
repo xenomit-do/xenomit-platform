@@ -1,0 +1,60 @@
+# Phase 9 admission policy: required labels (docs/09 §9.2). Labels are load-
+# bearing here, not decoration:
+#   * xenomit.io/bot selects every per-bot NetworkPolicy
+#     (ops/k8s/20-bot-egress.template.yaml) — a bot pod without it silently
+#     falls back to namespace-wide egress rules;
+#   * xenomit.io/tenant drives telemetry attribution (docs/06 §6.3);
+#   * xenomit.io/epoch is how the fencing/lease machinery tells epochs apart
+#     (docs/03 §3.7, ADR-12);
+#   * app.kubernetes.io/{name,part-of} keep control-plane objects selectable
+#     by the shared netpols and dashboards.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: xenomit-require-labels
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    policies.kyverno.io/title: Required pod labels
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Bot pods must carry xenomit.io/{bot,tenant,epoch}; control-plane and
+      data pods must carry app.kubernetes.io/{name,part-of}.
+spec:
+  validationFailureAction: Enforce
+  failurePolicy: Fail
+  background: true
+  rules:
+    - name: bot-pods-carry-bot-labels
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["xenomit-bots"]
+      validate:
+        message: >-
+          Pods in xenomit-bots must carry labels xenomit.io/bot,
+          xenomit.io/tenant and xenomit.io/epoch — the per-bot egress policy
+          and epoch fencing select on them (docs/04 §4.2, docs/05 §5.3).
+        pattern:
+          metadata:
+            labels:
+              xenomit.io/bot: "?*"
+              xenomit.io/tenant: "?*"
+              xenomit.io/epoch: "?*"
+    - name: control-plane-pods-carry-app-labels
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["xenomit-system", "xenomit-data"]
+      validate:
+        message: >-
+          Pods in xenomit-system / xenomit-data must carry
+          app.kubernetes.io/name and app.kubernetes.io/part-of labels.
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*"
+              app.kubernetes.io/part-of: "?*"

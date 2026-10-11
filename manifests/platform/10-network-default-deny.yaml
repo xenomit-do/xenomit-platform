@@ -1,0 +1,35 @@
+# Default-deny baseline (docs/05 §5.3, 09 §9.2, ADR-13).
+# Bots and control plane get deny-all for BOTH directions; explicit allows are
+# layered on in 11-bots-allow-infra.yaml and the bootstrap-rendered
+# k8s/12-node-cidr-policies.template.yaml (rendered by stacks/90-post). Per-bot proxy egress is a separate
+# generated policy (20-bot-egress.template.yaml).
+#
+# NOTE: NetworkPolicy is additive — any allow rule in any policy opens that
+# flow for the selected pods. Default-deny + narrow allows = fail closed.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: xenomit-bots
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: xenomit-system
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: xenomit-data
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]

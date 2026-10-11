@@ -1,0 +1,264 @@
+# Image pipeline (docs/07 §7.2 stages 5–6, §7.3):
+#   build (multi-stage, distroless, non-root) → SBOM → vuln scan gate →
+#   cosign sign BY DIGEST → publish to the local registry →
+#   update GitOps manifests (kustomize image digests + BotRollout for botd).
+#
+# Placement: <source-repo>/.gitea/workflows/images.yml. The current build
+# contexts assume the Xenomit workspace tree at repos/; keep this workflow in
+# the repository that contains that workspace. Runs only on main.
+name: images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      fast_lane:
+        description: "Game-update fast lane (ids): short canary bake, wider waves"
+        type: boolean
+        default: false
+      channel:
+        description: "BotRollout channel selector"
+        type: choice
+        options: [stable, canary]
+        default: stable
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap two fleet-affecting publishes.
+  group: images-main
+  cancel-in-progress: false
+
+env:
+  # Runner jobs use the host-published registry endpoint. K8s workloads use
+  # the k3d registry alias configured in containerd.
+  REGISTRY_PUSH: host.k3d.internal:5000
+  REGISTRY_RUNTIME: xenomit-registry:5000
+  # packet-hash baked into the tag from the updater's baseline.
+  BASELINE: xenomit-packet-updater/baseline.json
+
+jobs:
+  build:
+    name: build/${{ matrix.name }}
+    runs-on: xenomit
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: botd
+            dockerfile: xenomit-botd/Dockerfile
+            version_file: xenomit-botd/Cargo.toml
+          - name: orchestrator
+            dockerfile: xenomit-orchestrator/ci/docker/Dockerfile.orchestrator
+            version_file: xenomit-orchestrator/Cargo.toml
+          - name: web-panel
+            dockerfile: xenomit-platform/services/docker/Dockerfile.web-panel
+            version_file: xenomit-web-panel/package.json
+          - name: packet-updater
+            dockerfile: xenomit-platform/services/docker/Dockerfile.packet-updater
+            version_file: xenomit-packet-updater/pyproject.toml
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Gitea runner uses a private Docker-in-Docker daemon in its pod.
+      # BuildKit runs inside that daemon; no host Docker socket is mounted.
+      - name: Set up buildx (Docker-in-Docker)
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      # Tag = <semver>-pkt.<12-char hash>. Docs/07 writes <semver>+<hash>
+      # (semver build metadata); '+' is illegal in a docker tag, so the '+'
+      # form is carried in an OCI annotation and the legal tag substitutes '-'.
+      - name: Compute tag
+        id: tag
+        shell: bash
+        env:
+          VERSION_FILE: ${{ matrix.version_file }}
+        run: |
+          set -euo pipefail
+          # POSIX tools only — python3/jq are not guaranteed on the runner image.
+          case "$VERSION_FILE" in
+            *.toml)   VER=$(grep -m1 '^version' "$VERSION_FILE" | sed 's/.*"\([^"]*\)".*/\1/') ;;
+            *.json)   VER=$(grep -m1 '"version"' "$VERSION_FILE" | sed 's/.*"\([0-9][0-9.]*\)".*/\1/') ;;
+            *)        echo "unknown version file" >&2; exit 1 ;;
+          esac
+          HASH=$(grep -m1 'version_hash' "$BASELINE" | sed 's/.*"\([0-9a-fA-F]*\)".*/\1/' | cut -c1-12)
+          [ -n "$HASH" ] || HASH=nobaseline
+          echo "semver=${VER}+${HASH}" >> "$GITHUB_OUTPUT"
+          echo "tag=${VER}-pkt.${HASH}" >> "$GITHUB_OUTPUT"
+
+      # botd builds the Flash client from xenomit-deployments/flash-client
+      # in the same image. That directory is not published on its own.
+      - name: Fetch flash client build
+        id: flash
+        if: matrix.name == 'botd'
+        shell: bash
+        env:
+          GITEA_SERVER_URL: ${{ vars.GITEA_SERVER_URL || 'http://gitea.git.svc.cluster.local:3000' }}
+          DEPLOYMENTS_TOKEN: ${{ secrets.DEPLOYMENTS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYMENTS_TOKEN" || { echo "missing org secret DEPLOYMENTS_TOKEN" >&2; exit 1; }
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.extraheader
+          export GIT_CONFIG_VALUE_0="Authorization: Basic $(printf '%s' "xenomit-ci:${DEPLOYMENTS_TOKEN}" | base64 | tr -d '\n')"
+          git clone --depth 1 --branch main "$GITEA_SERVER_URL/xenomit/xenomit-deployments.git" deployments
+          test -f deployments/flash-client/Dockerfile
+
+      - name: Build + push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          build-contexts: ${{ matrix.name == 'botd' && 'flashclient=deployments/flash-client' || '' }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY_PUSH }}/xenomit-${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY_PUSH }}/xenomit-${{ matrix.name }}:latest
+          labels: |
+            org.opencontainers.image.version=${{ steps.tag.outputs.semver }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          # BuildKit layer cache inside the local registry — survives runner
+          # pod restarts and is shared across the matrix.
+          cache-from: type=registry,ref=${{ env.REGISTRY_PUSH }}/cache/xenomit-${{ matrix.name }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY_PUSH }}/cache/xenomit-${{ matrix.name }}:buildcache,mode=max
+          provenance: false  # attestations handled explicitly below
+
+      # Digest is what rollouts use — tags are conveniences only (docs/07 §7.2:
+      # "promote by digest, never by mutable tag"). build-push-action exposes
+      # the pushed image digest directly.
+      - name: Capture digest
+        id: digest
+        shell: bash
+        run: |
+          echo "digest=${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "ref=${{ env.REGISTRY_PUSH }}/xenomit-${{ matrix.name }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+
+      - name: SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.digest.outputs.ref }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.name }}.spdx.json
+
+      # Vulnerability scan gate — fails the pipeline on fixable HIGH/CRITICAL.
+      - name: Vuln scan gate
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.digest.outputs.ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      # Cosign signs BY DIGEST with the Vault-backed Actions secrets; this
+      # local HTTP registry does not use the keyless Fulcio/Rekor flow.
+      # Admission verification (Kyverno) is phase 9 (docs/09 §9.2).
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign by digest
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          # The in-cluster registry serves plain HTTP; Cosign must opt into it.
+          cosign sign --yes --allow-http-registry=true --allow-insecure-registry=true \
+            --key env://COSIGN_PRIVATE_KEY \
+            "${{ steps.digest.outputs.ref }}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.name }}
+          path: sbom-${{ matrix.name }}.spdx.json
+          retention-days: 30
+
+      - name: Publish digest
+        shell: bash
+        run: |
+          mkdir -p digests
+          echo "${{ steps.digest.outputs.ref }}" > digests/${{ matrix.name }}.txt
+          echo "${{ steps.tag.outputs.tag }}" > digests/${{ matrix.name }}.tag
+
+      - name: Upload digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.name }}
+          path: digests/
+          retention-days: 7
+
+  deployments:
+    name: gitops
+    needs: build
+    runs-on: xenomit
+    timeout-minutes: 10
+    env:
+      GITEA_SERVER_URL: ${{ vars.GITEA_SERVER_URL || 'http://gitea.git.svc.cluster.local:3000' }}
+      DEPLOYMENTS_TOKEN: ${{ secrets.DEPLOYMENTS_TOKEN }}
+      FAST_LANE: ${{ inputs.fast_lane || false }}
+      CHANNEL: ${{ inputs.channel || 'stable' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digests-*
+          path: digests
+          merge-multiple: true
+
+      - name: Render GitOps manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYMENTS_TOKEN" || { echo "missing org secret DEPLOYMENTS_TOKEN" >&2; exit 1; }
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.extraheader
+          export GIT_CONFIG_VALUE_0="Authorization: Basic $(printf '%s' "xenomit-ci:${DEPLOYMENTS_TOKEN}" | base64 | tr -d '\n')"
+          git clone --branch main "$GITEA_SERVER_URL/xenomit/xenomit-platform.git" platform
+          BOTD_DIGEST=$(cat digests/botd.txt)
+          OP_DIGEST=$(cat digests/orchestrator.txt)
+          PANEL_DIGEST=$(cat digests/web-panel.txt)
+          # kustomize `images:` carries digests — this is what the cluster
+          # will run; the mutable tag is never referenced (docs/07 §7.2).
+          # Each Argo app has its own Kustomize image pin. Keep each images:
+          # entry in name→newName→digest order so sed can update it without
+          # requiring a kustomize binary on the runner.
+          CONTROL_PLANE=platform/services/gitops/overlays/local/kustomization.yaml
+          PANEL=platform/services/gitops/panel/kustomization.yaml
+          sed -i "/name: xenomit-orchestrator/,/digest:/s|digest: .*|digest: ${OP_DIGEST#*@}|" "$CONTROL_PLANE"
+          sed -i "/name: xenomit-web-panel/,/digest:/s|digest: .*|digest: ${PANEL_DIGEST#*@}|" "$PANEL"
+          # botd is not a Deployment — bots roll via BotRollout (docs/07 §7.3).
+          TPL=platform/services/gitops/rollouts/botd-rollout.example.yaml
+          OUT=platform/services/gitops/rollouts/botd-rollout.rendered.yaml
+          cp "$TPL" "$OUT"
+          BOTD_RUNTIME_REF="${REGISTRY_RUNTIME}/xenomit-botd@${BOTD_DIGEST#*@}"
+          sed -i "s|targetImage:.*|targetImage: ${BOTD_RUNTIME_REF}|" "$OUT"
+          sed -i "s|channel: stable|channel: ${CHANNEL}|" "$OUT"
+          if [ "$FAST_LANE" = "true" ]; then
+            # ids fast lane (docs/07 §7.3): bots are already parked in
+            # NeedsUpdate — bake just long enough to prove login+restore.
+            sed -i 's|bakeMinutes: 20|bakeMinutes: 5|' "$OUT"
+            sed -i 's|maxDraining: 25%|maxDraining: 50%|' "$OUT"
+          fi
+
+      # Promote only digests and rollout templates to the separate Argo source.
+      - name: Commit deployment update
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.extraheader
+          export GIT_CONFIG_VALUE_0="Authorization: Basic $(printf '%s' "xenomit-ci:${DEPLOYMENTS_TOKEN}" | base64 | tr -d '\n')"
+          git -C platform add services/gitops
+          if git -C platform diff --cached --quiet; then
+            echo "deployment digests already match; nothing to promote"
+            exit 0
+          fi
+          git -C platform -c user.name="xenomit-ci" -c user.email="ci@xenomit.local" \
+            commit -m "deployments: promote images for ${{ github.sha }}"
+          git -C platform push origin main

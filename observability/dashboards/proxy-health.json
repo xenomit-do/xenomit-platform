@@ -1,0 +1,51 @@
+{
+  "title": "Xenomit — Proxy Health",
+  "description": "docs/06 §6.7. xenomit.proxy.health by pool/state (pending metric). Failover events show up as handoffs with reason=proxy_change.",
+  "tags": ["xenomit", "proxy"],
+  "version": "v4",
+  "uploadedGrafana": false,
+  "layout": [
+    { "h": 4, "i": "proxy-state", "w": 12, "x": 0, "y": 0 },
+    { "h": 4, "i": "unhealthy-ratio", "w": 6, "x": 12, "y": 0 },
+    { "h": 4, "i": "failover-rate", "w": 6, "x": 18, "y": 0 }
+  ],
+  "panels": [
+    {
+      "id": "proxy-state",
+      "title": "Proxies by pool and state",
+      "description": "Gauge written by ProxyController health probes (docs/04 §4.2).",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum by (pool, state) (xenomit_proxy_health)", "legend": "{{pool}}/{{state}}", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "unhealthy-ratio",
+      "title": "Unhealthy ratio",
+      "description": "Alert threshold: > 0.2 sustained — the pool is thinning.",
+      "panelTypes": "VALUE",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum(xenomit_proxy_health{state!=\"healthy\"}) / sum(xenomit_proxy_health)", "legend": "unhealthy ratio", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "failover-rate",
+      "title": "Proxy-failover handoffs (1h)",
+      "description": "Handoffs where reason=proxy_change — reads xenomit.handoff.duration count.",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum(increase(xenomit_handoff_duration_count{reason=\"proxy_change\"}[1h]))", "legend": "failovers/h", "disabled": false }
+        ]
+      }
+    }
+  ],
+  "variables": {}
+}

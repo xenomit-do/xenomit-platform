@@ -1,0 +1,24 @@
+# Control gateway service (docs/04 §4.5): one bidirectional gRPC stream per
+# bot. Served by the single-process `xenomit-orchestratord` pod — the
+# Deployment lives in operator.yaml; this Service keeps the stable DNS name
+# bot pods resolve via --control-endpoint
+# (http://control-gateway.xenomit-system:8443).
+#
+# Contract with the bot egress NetworkPolicy: the bot egress
+# NetworkPolicy allows TCP 8443 only to pods labelled
+# `xenomit.io/component: gateway` in xenomit-system — the selector below
+# must match that label on the orchestratord pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-gateway
+  namespace: xenomit-system
+  labels:
+    app.kubernetes.io/name: xenomit-gateway
+    app.kubernetes.io/part-of: xenomit-control-plane
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: xenomit-orchestratord
+  ports:
+    - { name: grpc, port: 8443, targetPort: grpc }

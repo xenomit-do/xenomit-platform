@@ -1,0 +1,8 @@
+# Repositories that make up the platform. On a new machine ops/bootstrap.ps1 clones the
+# ones that are missing from GitHub (https://github.com/xenomit-do/<name>) into the folder
+# that holds xenomit-platform, then pushes them into Gitea.
+xenomit-platform
+xenomit-platform-gitea
+xenomit-platform-argocd
+xenomit-flash-client-linux
+xenomit-deployments

@@ -1,0 +1,102 @@
+{
+  "title": "Xenomit — Fleet Health",
+  "description": "docs/06 §6.7. Phase mix, parked states, restarts, tick health. OTel metric names appear in SigNoz/PromQL with underscores (xenomit.bot.phase → xenomit_bot_phase).",
+  "tags": ["xenomit", "fleet"],
+  "version": "v4",
+  "uploadedGrafana": false,
+  "layout": [
+    { "h": 3, "i": "phase-mix", "w": 12, "x": 0, "y": 0 },
+    { "h": 3, "i": "running", "w": 4, "x": 12, "y": 0 },
+    { "h": 3, "i": "needs-update", "w": 4, "x": 16, "y": 0 },
+    { "h": 3, "i": "needs-human", "w": 4, "x": 20, "y": 0 },
+    { "h": 4, "i": "restarts", "w": 8, "x": 0, "y": 3 },
+    { "h": 4, "i": "tick-p95", "w": 8, "x": 8, "y": 3 },
+    { "h": 4, "i": "uptime", "w": 8, "x": 16, "y": 3 }
+  ],
+  "panels": [
+    {
+      "id": "phase-mix",
+      "title": "Bots by phase",
+      "description": "Count of bots per lifecycle phase (docs/01 §1.4). Watch quarantined / needs_update / failed specifically.",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum by (phase) (xenomit_bot_phase)", "legend": "{{phase}}", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "running",
+      "title": "Running",
+      "panelTypes": "VALUE",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum(xenomit_bot_phase{phase=\"running\"})", "legend": "running", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "needs-update",
+      "title": "NeedsUpdate (game changed)",
+      "description": "Parked after a version mismatch (exit 68, ci/docs/needsupdate-failsafe.md). >0 is a fleet-level event — the fast-lane rollout is what clears it.",
+      "panelTypes": "VALUE",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum(xenomit_bot_phase{phase=\"needs_update\"})", "legend": "needs_update", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "needs-human",
+      "title": "NeedsHuman",
+      "description": "CAPTCHA / credentials / session-expiry — first-class state, not an error.",
+      "panelTypes": "VALUE",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum(xenomit_bot_phase{phase=\"needs_human\"})", "legend": "needs_human", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "restarts",
+      "title": "Restarts (15m rate)",
+      "description": "xenomit.bot.restarts counter — one per botd process start; spikes mean crash loops or mass handoffs.",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "sum(increase(xenomit_bot_restarts[15m]))", "legend": "restarts/15m", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "tick-p95",
+      "title": "Tick duration p95 by module",
+      "description": "xenomit.runtime.tick_duration. A regression here after a rollout = behavior change; CI load also shows up (docs/11 §11.3).",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "histogram_quantile(0.95, sum by (le, module) (rate(xenomit_runtime_tick_duration_bucket[5m])))", "legend": "p95 {{module}}", "disabled": false }
+        ]
+      }
+    },
+    {
+      "id": "uptime",
+      "title": "Uptime ratio by tenant",
+      "description": "xenomit.bot.uptime_ratio (pending metric, docs/06 §6.6).",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          { "query": "avg by (tenant) (xenomit_bot_uptime_ratio)", "legend": "{{tenant}}", "disabled": false }
+        ]
+      }
+    }
+  ],
+  "variables": {}
+}

@@ -1,0 +1,42 @@
+# Vault beside the cluster, not in it (docs/11 §11.2). Brought up by
+# ops/vault/vault-init.ps1 (which generates tls/ first — the container will not
+# start without certs, by design: TLS on, not dev mode).
+#
+#   docker compose -f ops/vault/docker-compose.yml up -d
+#
+# Pods reach it as https://vault.xenomit-system.svc.cluster.local:8200
+# (ExternalName -> host.k3d.internal, see ops/k8s/05-vault-service.yaml).
+name: xenomit-vault
+
+services:
+  vault:
+    image: hashicorp/vault:1.20
+    container_name: xenomit-vault
+    restart: unless-stopped
+    # hashicorp/vault entrypoint chowns /vault/file but Raft uses /vault/data;
+    # named volumes mount as root:root 755, so the vault user cannot create vault.db.
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - chown -R vault:vault /vault/data; exec /usr/local/bin/docker-entrypoint.sh server
+    cap_add:
+      - IPC_LOCK          # required for mlock (see vault.hcl)
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault-data:/vault/data          # Raft data survives cluster rebuilds
+      - ./vault.hcl:/vault/config/vault.hcl:ro
+      - ./tls:/vault/tls:ro
+    environment:
+      # In-container CLI convenience: docker exec xenomit-vault vault status
+      VAULT_ADDR: "https://127.0.0.1:8200"
+      VAULT_CACERT: "/vault/tls/ca.crt"
+    healthcheck:
+      test: ["CMD-SHELL", "vault status -format=json >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  vault-data:

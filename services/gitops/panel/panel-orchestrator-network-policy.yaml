@@ -1,0 +1,23 @@
+# The system namespace defaults to deny-all. Allow the panel to call the
+# orchestrator REST API and consume its SSE event stream on TCP 8080.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: orchestrator-api-allow-panel
+  namespace: xenomit-system
+  labels:
+    app.kubernetes.io/part-of: xenomit-control-plane
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: xenomit-orchestratord
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: xenomit-web-panel
+      ports:
+        - protocol: TCP
+          port: 8080

@@ -1,0 +1,110 @@
+# OpenObserve v1.0.4 in local mode. One pod, one 10Gi volume, seven-day
+# retention. The root login is Secret observability/openobserve-auth, created
+# by OpenTofu and kept out of git.
+apiVersion: v1
+kind: Service
+metadata:
+  name: openobserve
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: openobserve
+    app.kubernetes.io/part-of: xenomit
+spec:
+  selector:
+    app.kubernetes.io/name: openobserve
+  ports:
+    - name: http
+      port: 5080
+      targetPort: http
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: openobserve
+    app.kubernetes.io/part-of: xenomit
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openobserve
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: openobserve
+    app.kubernetes.io/part-of: xenomit
+spec:
+  serviceName: openobserve
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openobserve
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openobserve
+        app.kubernetes.io/part-of: xenomit
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: openobserve
+          image: public.ecr.aws/zinclabs/openobserve:v1.0.4
+          ports:
+            - name: http
+              containerPort: 5080
+          env:
+            - name: ZO_LOCAL_MODE
+              value: "true"
+            - name: ZO_DATA_DIR
+              value: /data
+            - name: ZO_HTTP_PORT
+              value: "5080"
+            - name: ZO_COMPACT_DATA_RETENTION_DAYS
+              value: "7"
+            - name: ZO_TELEMETRY
+              value: "false"
+            - name: ZO_ROOT_USER_EMAIL
+              valueFrom:
+                secretKeyRef: { name: openobserve-auth, key: email }
+            - name: ZO_ROOT_USER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: openobserve-auth, key: password }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: tmp, mountPath: /tmp }
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: openobserve-data }
+        - name: tmp
+          emptyDir: {}

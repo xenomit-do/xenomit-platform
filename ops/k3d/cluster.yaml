@@ -1,0 +1,66 @@
+# k3d cluster definition for the local Xenomit platform (docs/11 §11.1).
+# Usage: k3d cluster create --config ops/k3d/cluster.yaml
+#
+# Deliberate choices:
+#  * 1 server, 0 agents  — single-node local cluster.
+#  * Traefik + servicelb kept enabled (defaults). Ports 80/443 are published on 127.0.0.1
+#    and serve the UIs by host name (xenomit-platform/ingress.tf).
+#  * The embedded k3s NetworkPolicy controller is NOT disabled. It is the reason
+#    k3d was chosen over kind / Docker Desktop Kubernetes (docs/05 §5.5).
+#  * A local registry is created beside the cluster; CI pushes to
+#    localhost:5000 and pods pull from xenomit-registry:5000.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: xenomit
+servers: 1
+agents: 0
+# Windows: k3d defaults to host.docker.internal in kubeconfig; that IP often
+# cannot reach the published API port from the host. Loopback is reliable.
+kubeAPI:
+  host: "127.0.0.1"
+  hostIP: "127.0.0.1"
+  hostPort: "6443"
+image: rancher/k3s:v1.36.5-k3s1  # pin deliberately; bump with the platform, not casually
+registries:
+  create:
+    name: xenomit-registry
+    host: "0.0.0.0"
+    hostPort: "5000"
+ports:
+  - port: 127.0.0.1:80:80
+    nodeFilters:
+      - loadbalancer
+  - port: 127.0.0.1:443:443
+    nodeFilters:
+      - loadbalancer
+  # Loopback publishes for ops/k3d/localhost-core.yaml and localhost-apps.yaml. The load balancer
+  # proxies container port == nodePort to the server. 127.0.0.1 keeps these
+  # off every routable host address.
+  - port: 127.0.0.1:8080:30080 # Argo CD
+    nodeFilters:
+      - loadbalancer
+  - port: 127.0.0.1:5080:30580 # OpenObserve
+    nodeFilters:
+      - loadbalancer
+  - port: 127.0.0.1:3000:30300 # Gitea
+    nodeFilters:
+      - loadbalancer
+  - port: 127.0.0.1:3002:30302 # Xenomit panel
+    nodeFilters:
+      - loadbalancer
+  - port: 127.0.0.1:5433:30433 # PostgreSQL
+    nodeFilters:
+      - loadbalancer
+options:
+  k3d:
+    wait: true
+    timeout: "120s"
+    disableLoadbalancer: false
+    disableImageVolume: false
+  k3s:
+    # No --disable-network-policy, no --disable=traefik: defaults are wanted.
+    extraArgs: []
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true

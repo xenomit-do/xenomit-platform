@@ -1,0 +1,39 @@
+# xenomit-data (Postgres): the control plane and the collector may dial 5432.
+# Host loopback access is a separate allow in
+# ops/k8s/12-node-cidr-policies.template.yaml. Nothing may leave except DNS.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-allow-postgres-ingress
+  namespace: xenomit-data
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: xenomit-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-allow-dns
+  namespace: xenomit-data
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }

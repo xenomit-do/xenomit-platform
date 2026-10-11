@@ -1,0 +1,106 @@
+# Postgres for the orchestrator schema + the panel DB (docs/11 §11.2,
+# ADR-05/ADR-22). Single StatefulSet on k3s local-path storage — no hostPath,
+# so the same manifest works on a real cluster.
+#
+# The `postgres-auth` Secret (POSTGRES_USER / POSTGRES_PASSWORD) is created by
+# OpenTofu (random_password.postgres) and is intentionally NOT committed.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  namespace: xenomit-data
+data:
+  00-databases.sql: |
+    -- First-boot init: one role-owned database per consumer.
+    CREATE DATABASE xenomit_orchestrator;
+    CREATE DATABASE xenomit_panel;
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: xenomit-data
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: xenomit
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: xenomit-data
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: xenomit
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: xenomit
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 70
+        seccompProfile: { type: RuntimeDefault }   # xenomit-pod-security floor (phase 9)
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { containerPort: 5432, name: postgres }
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: { name: postgres-auth, key: POSTGRES_USER }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: postgres-auth, key: POSTGRES_PASSWORD }
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: initdb, mountPath: /docker-entrypoint-initdb.d }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "xenomit", "-d", "postgres"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "xenomit", "-d", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { cpu: 500m, memory: 512Mi }   # docs/11 §11.3: ~0.5 GiB
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: initdb
+          configMap: { name: postgres-initdb }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

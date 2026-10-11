@@ -1,0 +1,29 @@
+# BotRollout — game-update fast lane (docs/07 §7.3).
+# Used when the packet-updater flow produces exit_class=ids: bots are
+# already parked in NeedsUpdate so `maxOffline` is not the constraint —
+# the bake only needs to prove login + restore before wider waves.
+# exit_class=review NEVER uses this: wire-shape changes wait for a human.
+apiVersion: fleet.xenomit.io/v1alpha1
+kind: BotRollout
+metadata:
+  name: botd-rollout-fastlane
+  namespace: xenomit-system
+spec:
+  targetImage: xenomit-registry:5000/xenomit-botd@sha256:REPLACE_ME
+  selector:
+    channel: stable
+  strategy:
+    canary:
+      count: 3
+      bakeMinutes: 5         # only long enough to prove login + restore
+      bots: []
+    waves:
+      maxDraining: 50%       # bots already down in NeedsUpdate — drain fast
+      maxOffline: 50
+      interWaveDelayS: 60
+      loginJitterS: 45       # still jittered — a login stampede is a ban signal
+    gates:
+      maxFailedRestores: 0
+      maxLoginFailureRatePermille: 20
+      minRewardRateRatio: 0.7
+  onGateFailure: pause

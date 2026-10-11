@@ -1,0 +1,20 @@
+# GitOps base for the operator and control-plane APIs (docs/07 §7.3).
+# The web panel has an independent Argo Application under services/gitops/panel
+# because it has its own build/release lifecycle.
+# Plain Kustomize — Argo CD applies the overlay, which pins images
+# by digest. Shared infra (Postgres, collector, OpenObserve, Vault) stays in
+# the platform OpenTofu manifests, not here.
+#
+# Namespaces are created by the platform stack — deliberately not
+# managed here so teardown stays one-shot.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - operator.yaml
+  - operator-rbac.yaml
+  - gateway.yaml
+  - api.yaml
+
+# Base uses bare image names; overlays map them to the registry and pin
+# the digest via `images:`.

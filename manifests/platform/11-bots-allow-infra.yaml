@@ -1,0 +1,79 @@
+# Shared infra allows for bot pods (docs/05 §5.1 "Infra" traffic class).
+# Everything a bot may reach that is NOT its proxy lives here; the per-bot
+# proxy allowance is generated separately (20-bot-egress.template.yaml).
+#
+# Selector contract (must be matched by the orchestrator/panel charts when they
+# land in phase 4/6): pods that terminate the control plane carry
+#   xenomit.io/component: gateway
+# pods that terminate the data plane (panel agent WS) carry
+#   xenomit.io/component: panel
+# the otel collector DaemonSet pods carry
+#   app.kubernetes.io/name: opentelemetry-collector
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bots-allow-dns
+  namespace: xenomit-bots
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bots-allow-control-plane
+  namespace: xenomit-bots
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    # control plane: gRPC gateway stream (docs/04 §4.5)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: xenomit-system
+          podSelector:
+            matchLabels:
+              xenomit.io/component: gateway
+      ports:
+        - { protocol: TCP, port: 8443 }
+    # data plane: Agent Protocol v1 WebSocket to the panel (docs/01 §1.2)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: xenomit-system
+          podSelector:
+            matchLabels:
+              xenomit.io/component: panel
+      ports:
+        - { protocol: TCP, port: 3000 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bots-allow-otel
+  namespace: xenomit-bots
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    # Service-hop path (pod IP). The hostPort/node-IP path used in production
+    # per docs/06 §6.7 is covered by the rendered node-CIDR policy.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: opentelemetry-collector
+      ports:
+        - { protocol: TCP, port: 4317 }

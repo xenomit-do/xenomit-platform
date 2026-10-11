@@ -1,0 +1,122 @@
+# TEMPLATE — rendered by stacks/90-post (OpenTofu) from the live k3d subnet
+# Do NOT apply this file directly; it contains placeholders.
+#   __K3D_NODE_CIDR__  subnet of the k3d-<cluster> docker network (node IPs)
+#   __VAULT_HOST_IP__  IP that host.k3d.internal resolves to from inside the cluster
+#
+# Why a render step: egress to hostPort/node IP destinations (the OTLP
+# collector per docs/06 §6.7, Vault on the host per docs/09 §9.2a, kubelet
+# health probes arriving from the node) must be expressed as ipBlocks, and the
+# k3d network subnet is only known after the cluster exists.
+---
+# Bot egress to node-local services on the host/node IPs:
+#   4317  OTLP gRPC on the collector hostPort (docs/06 §6.7)
+#   8200  Vault on the Docker host (JWT login + secret reads at Arm, docs/09)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bots-allow-node-services
+  namespace: xenomit-bots
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: __K3D_NODE_CIDR__
+      ports:
+        - { protocol: TCP, port: 4317 }
+    - to:
+        - ipBlock:
+            cidr: __VAULT_HOST_IP__/32
+      ports:
+        - { protocol: TCP, port: 8200 }
+---
+# Kubelet probes arrive from the node IP. botd serves /startupz /readyz /livez
+# on the pod IP (docs/02 §2.5); without this ingress allow every probe dies at
+# default-deny.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bots-allow-kubelet-probes
+  namespace: xenomit-bots
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: __K3D_NODE_CIDR__
+      ports:
+        - { protocol: TCP, port: 8080 }
+---
+# Control-plane egress: anywhere cluster-internal + the host Vault + DNS.
+# The operator talks to the API server (node:6443), Postgres (pod IP), the
+# collector, and Vault; bots dial IN to the gateway/panel.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: system-allow-egress
+  namespace: xenomit-system
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - ipBlock: { cidr: 10.42.0.0/16 }   # k3s pod CIDR
+        - ipBlock: { cidr: 10.43.0.0/16 }   # k3s service CIDR
+        - ipBlock: { cidr: __K3D_NODE_CIDR__ }
+        - ipBlock: { cidr: __VAULT_HOST_IP__/32 }
+---
+# Control-plane ingress: bots dialing the gateway/panel, Traefik forwarding
+# user traffic to the panel, kubelet probes.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: system-allow-ingress
+  namespace: xenomit-system
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: xenomit-bots
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+    - from:
+        - ipBlock:
+            cidr: __K3D_NODE_CIDR__
+      ports:
+        - { protocol: TCP, port: 8080 }
+        - { protocol: TCP, port: 8443 }
+        - { protocol: TCP, port: 3000 }
+---
+# Host 127.0.0.1:5433 is the k3d load balancer forwarding to the postgres
+# NodePort. That balancer address is in the node subnet. Bot egress does not
+# allow this port; the publish itself is loopback-only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-allow-localhost-postgres
+  namespace: xenomit-data
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: __K3D_NODE_CIDR__
+      ports:
+        - { protocol: TCP, port: 5432 }

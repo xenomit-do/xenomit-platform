@@ -139,6 +139,10 @@ def workspace(catalog_path, directory, output):
             print(f'{name}: source-only directory preserved; migrate it through the repository onboarding runbook', file=sys.stderr)
             revisions['local_checkouts'][name] = None
             continue
+        if not run(['git', 'rev-parse', '--verify', 'HEAD'], cwd=target, check=False):
+            print(f'{name}: unborn Git checkout preserved; import its source through onboarding', file=sys.stderr)
+            revisions['local_checkouts'][name] = None
+            continue
         origin = run(['git', 'remote', 'get-url', 'origin'], cwd=target, check=False)
         if origin not in (url, url[:-4], f'git@github.com:{org}/{name}.git'):
             print(f'{name}: origin differs; checkout unchanged, see migration runbook', file=sys.stderr)

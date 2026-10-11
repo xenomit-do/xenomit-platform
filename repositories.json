@@ -1,16 +1,6 @@
 {
   "organization": "xenomit-do",
   "repositories": {
-    "ruffle": {
-      "default_branch": "main",
-      "workspace": true,
-      "ci_profile": "source",
-      "atlantis": false,
-      "archived": false,
-      "required_checks": [
-        "source-check / source-check"
-      ]
-    },
     "xenomit-backpage": {
       "default_branch": "main",
       "workspace": true,

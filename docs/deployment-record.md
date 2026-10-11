@@ -20,7 +20,7 @@ Argo CD, Atlantis, Cloudflare connector, ARC, Kyverno, Vault, PostgreSQL, OpenOb
 
 Private inventory, publication scan reports and migration PR records are stored in `.xenomit/`. Full surviving history and staged source passed secret scans before publication. Windows worktrees and private runtime files were not overwritten. Private game captures, downloaded runtime assets, databases, session tokens and credentials were excluded; proprietary Flash/Pepper binaries are supplied locally. The raylib fixture requirements are documented in that repository.
 
-Application source imports retain the managed source-check workflow. That check verifies whitespace and secret scanning; it does **not** prove that every application compiles or builds an image. Former GitHub-hosted workflows are preserved in historical commits but are replaced in the active migration tree. Deleted Gitea PR history cannot be restored without backups.
+Application source imports retain the managed source-check workflow. That check verifies whitespace and secret scanning; it does **not** prove that every application compiles or builds an image. Former GitHub-hosted workflows are preserved in historical commits but are replaced in the active migration tree.
 
 External credentials are stored only in `/home/yagiz/.config/xenomit` (directory 0700; credential files 0600). Generated cluster state and credentials live in private `.xenomit/` files. Never commit either directory or copy credentials into this documentation. Rotate any previously exposed credentials before reuse.
 

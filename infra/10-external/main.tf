@@ -108,7 +108,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared" "atlantis" {
   lifecycle {
     prevent_destroy = true
     # Provider v4 import omits config_src; retain the existing remote tunnel.
-    ignore_changes  = [secret, config_src]
+    ignore_changes = [secret, config_src]
   }
 }
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "atlantis" {

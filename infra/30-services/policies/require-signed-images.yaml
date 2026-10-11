@@ -27,7 +27,7 @@ metadata:
     policies.kyverno.io/description: >-
       Every container image in xenomit-bots / xenomit-system must come from
       the organization GHCR registry, be pinned by sha256 digest, and carry a cosign
-      signature made by the protected GitHub image workflow (docs/07 §7.2 images workflow).
+      signature made by a trusted source-repository image workflow (docs/runbooks/image-promotion.md).
 spec:
   validationFailureAction: Enforce
   failurePolicy: Fail       # closed posture: kyverno errors deny, not wave through

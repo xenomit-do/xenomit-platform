@@ -16,7 +16,9 @@ resource "github_actions_runner_group" "build" {
   restricted_to_workflows = true
   selected_workflows = [
     "xenomit-do/xenomit-platform/.github/workflows/source-check.yml@refs/heads/main",
-    "xenomit-do/xenomit-platform/.github/workflows/images.yml@refs/heads/main"
+    "xenomit-do/xenomit-orchestrator/.github/workflows/image.yml@refs/heads/main",
+    "xenomit-do/xenomit-web-panel/.github/workflows/image.yml@refs/heads/main",
+    "xenomit-do/xenomit-botd/.github/workflows/image.yml@refs/heads/main"
   ]
   name                       = "xenomit-build"
   visibility                 = "selected"
@@ -28,7 +30,7 @@ resource "github_actions_runner_group" "platform" {
   selected_workflows = [
     "xenomit-do/xenomit-platform/.github/workflows/platform-check.yml@refs/heads/main",
     "xenomit-do/xenomit-platform/.github/workflows/catalog.yml@refs/heads/main",
-    "xenomit-do/xenomit-platform/.github/workflows/images.yml@refs/heads/main"
+    "xenomit-do/xenomit-deployments/.github/workflows/promote-image.yml@refs/heads/main"
   ]
   name                       = "xenomit-platform"
   visibility                 = "selected"

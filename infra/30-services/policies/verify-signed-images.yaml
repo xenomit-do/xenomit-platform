@@ -13,7 +13,7 @@ spec:
               kinds: [Pod]
               namespaces: [xenomit-system, xenomit-bots]
       verifyImages:
-        - imageReferences: ['ghcr.io/xenomit-do/*']
+        - imageReferences: ['ghcr.io/xenomit-do/xenomit-orchestrator*']
           mutateDigest: false
           verifyDigest: true
           required: true
@@ -21,6 +21,28 @@ spec:
             - entries:
                 - keyless:
                     issuer: https://token.actions.githubusercontent.com
-                    subject: https://github.com/xenomit-do/xenomit-platform/.github/workflows/images.yml@refs/heads/main
+                    subject: https://github.com/xenomit-do/xenomit-orchestrator/.github/workflows/image.yml@refs/heads/main
+                    rekor:
+                      url: https://rekor.sigstore.dev
+        - imageReferences: ['ghcr.io/xenomit-do/xenomit-web-panel*']
+          mutateDigest: false
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subject: https://github.com/xenomit-do/xenomit-web-panel/.github/workflows/image.yml@refs/heads/main
+                    rekor:
+                      url: https://rekor.sigstore.dev
+        - imageReferences: ['ghcr.io/xenomit-do/xenomit-botd*']
+          mutateDigest: false
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subject: https://github.com/xenomit-do/xenomit-botd/.github/workflows/image.yml@refs/heads/main
                     rekor:
                       url: https://rekor.sigstore.dev

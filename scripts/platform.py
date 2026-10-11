@@ -220,7 +220,16 @@ def import_vault(stack, config_path):
     request = urllib.request.Request(address + '/v1/sys/auth', headers={'X-Vault-Token': token})
     with urllib.request.urlopen(request) as response:
         mounts = json.load(response)['data']
-    if 'jwt/' in mounts:
+    if 'jwt/' in mounts and 'vault_jwt_auth_backend.jwt' not in known:
+        # A failed provider create can leave an unconfigured mount. Complete
+        # its Git-defined configuration so provider Read can import it.
+        config = read(config_path)['config']
+        body = json.dumps({'jwt_validation_pubkeys': config['jwt_validation_pubkeys'],
+                           'bound_issuer': config['jwt_issuer']}).encode()
+        request = urllib.request.Request(address + '/v1/auth/jwt/config', data=body,
+            headers={'X-Vault-Token': token, 'Content-Type': 'application/json'}, method='PUT')
+        with urllib.request.urlopen(request):
+            pass
         import_one(stack, config_path, known, 'vault_jwt_auth_backend.jwt', 'jwt')
 
 

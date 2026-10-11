@@ -31,6 +31,8 @@ spec:
           ports: [{containerPort: 4141}]
           envFrom: [{secretRef: {name: platform-credentials}}]
           env:
+            - {name: HOME, value: /atlantis-data}
+            - {name: ATLANTIS_TF_DISTRIBUTION, value: opentofu}
             - {name: ATLANTIS_GH_APP_KEY_FILE, value: /run/platform/atlantis.pem}
             - {name: ATLANTIS_ATLANTIS_URL, value: '${atlantis_url}'}
             - {name: ATLANTIS_GH_HOSTNAME, value: github.com}

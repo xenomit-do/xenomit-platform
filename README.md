@@ -1,23 +1,25 @@
 # Xenomit platform
 
-OpenTofu definition of the Xenomit cluster platform. Atlantis applies changes from pull requests. `ops/bootstrap.ps1` builds the cluster and applies the OpenTofu stacks listed in `ops/stacks.txt`, in order, until the platform is complete; `bootstrap/` holds the minimal structure (Gitea, Argo CD, Atlantis) and `stacks/` the admin stacks.
+GitHub-backed, disposable k3d platform for Linux/WSL. GitHub owns repository history;
+OpenTofu owns infrastructure; Atlantis plans/applies GitHub PRs; Argo CD owns applications,
+fleet specifications, and ephemeral GitHub Actions runner scale sets.
 
-This stack creates the workload namespaces, network baseline, Postgres, the collector, OpenObserve, fleet CRDs, Kyverno, and the Argo CD project that deploys the orchestrator and the panel from `services/gitops`. Gitea, Argo CD, and Atlantis themselves are installed by `bootstrap/` because they have to exist before this stack can run.
+Start with [bootstrap](docs/runbooks/bootstrap.md), [migration](docs/runbooks/migration.md),
+the [ownership contract](docs/architecture.md), and the [runbook index](docs/runbooks/README.md).
 
-The orchestrator binary is built from `xenomit-orchestrator`. This repository owns how that binary runs on the cluster.
+```bash
+git clone https://github.com/xenomit-do/xenomit-platform.git
+cd xenomit-platform
+bash bootstrap.sh --workspace "$HOME/src/xenomit"
+bash verify.sh --workspace "$HOME/src/xenomit"
+bash destroy.sh --workspace "$HOME/src/xenomit"
+```
 
-Bootstrap, teardown, and a step-by-step explanation of the pipeline are in `ops/BOOTSTRAP-IAC.md`. Local URLs and credential commands are in `ops/LOCAL-ACCESS.md`.
+Supply credentials outside Git as described in config.example.json. Bootstrap has no dependency on
+Atlantis or Argo already existing. All active stacks are listed in infra/stacks.txt; the legacy
+root .tf files, bootstrap/, stacks/, and PowerShell entry points are retained for migration reference
+and uncommitted local work, and are not used by this bootstrap or Atlantis configuration.
 
-## Layout
-
-| Path | What it is |
-| --- | --- |
-| `bootstrap/` | The minimal working structure: Gitea, Argo CD, tokens and Atlantis (three OpenTofu stages) |
-| `stacks/` | Admin OpenTofu applied by the bootstrap after the platform stacks: other repositories and their mirrors, GitHub token, post-apply secrets |
-| `ops/` | Bootstrap and teardown scripts, Vault, k3d config, and the manifests `bootstrap/` and `stacks/` load |
-| `services/gitops/` | Kustomize manifests for the orchestrator and the web panel |
-| `services/docker/` | Dockerfiles for the panel and the packet updater |
-| `db/plans/` | SQL for plan, quota, and billing tables |
-| `manifests/` | Namespaces, platform services, CRDs, and Kyverno policies applied by OpenTofu |
-| `observability/` | Dashboard and alert definitions |
-| `ci/workflows/` | Image, panel, updater, and nightly workflows |
+Repository catalog: repositories.json. Applications and runners: xenomit-deployments.
+Every organization repository is intended to be public; publication is gated by an audit.
+No cluster creation, repository publication, or live apply is performed by local validation.

@@ -1,0 +1,21 @@
+name: catalog-reconciliation
+on:
+  schedule: [{cron: '17 * * * *'}]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: xenomit-platform
+    environment: platform-admin
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {ref: main, persist-credentials: false}
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3
+      - name: Reconcile organization catalog
+        env: {ADMIN_TOKEN: '${{ secrets.RECONCILE_TOKEN }}'}
+        run: |
+          umask 077
+          python3 -c 'import json,os; json.dump({"config":{"github_admin_token":os.environ["ADMIN_TOKEN"]}},open(os.environ["RUNNER_TEMP"]+"/reconcile.json","w"))'
+          python3 scripts/platform.py reconcile repositories.json "$RUNNER_TEMP/reconcile.json"
+          python3 scripts/platform.py onboard repositories.json "$RUNNER_TEMP/reconcile.json" ci/templates/source-check.yml

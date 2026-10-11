@@ -1,7 +1,38 @@
 version: 3
 automerge: true
+parallel_plan: false
+parallel_apply: false
 projects:
-  - name: platform
-    dir: .
+  - name: identity
+    dir: infra/00-identity
     terraform_distribution: opentofu
     terraform_version: 1.12.6
+    autoplan: {when_modified: ['*.tf', '../../repositories.json'], enabled: true}
+  - name: external
+    dir: infra/10-external
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
+    depends_on: [identity]
+    execution_order_group: 1
+    autoplan: {when_modified: ['*.tf', '../../repositories.json'], enabled: true}
+  - name: controllers
+    dir: infra/20-controllers
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
+    depends_on: [external]
+    execution_order_group: 2
+    autoplan: {when_modified: ['*.tf', 'values/**', 'manifests/**', '../../repositories.json'], enabled: true}
+  - name: services
+    dir: infra/30-services
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
+    depends_on: [controllers]
+    execution_order_group: 3
+    autoplan: {when_modified: ['*.tf', 'manifests/**', 'policies/**', '../../manifests/**', '../../values/**'], enabled: true}
+  - name: vault
+    dir: infra/40-vault
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
+    depends_on: [services]
+    execution_order_group: 4
+    autoplan: {when_modified: ['*.tf', '../../ops/vault/policies/**'], enabled: true}

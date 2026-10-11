@@ -1,0 +1,50 @@
+# Phase 9 admission policy: no automounted ServiceAccount token in
+# xenomit-bots (docs/09 §9.2 "no service-account token beyond a projected,
+# audience-scoped one"). The bots namespace is where user credentials are
+# reachable — a default-mounted token (audience = Kubernetes API) is both
+# unnecessary (botd never calls the API) and a step-up path if a pod is
+# compromised: projected tokens carry audiences ("vault", "xenomit-gateway")
+# that the API server does not accept.
+#
+# Explicit `automountServiceAccountToken: false` is required rather than
+# merely allowed — the operator already renders it
+# (operator/src/backends/kube_backend.rs), and requiring it means a hand-
+# applied pod can't quietly get API credentials by omission. Projected
+# serviceAccountToken volumes are unaffected and remain the only token path.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: xenomit-no-automounted-sa-token
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    policies.kyverno.io/title: No automounted SA token (bots namespace)
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Pods in xenomit-bots must set automountServiceAccountToken: false —
+      identity comes only from projected, audience-scoped tokens.
+spec:
+  validationFailureAction: Enforce
+  failurePolicy: Fail
+  background: true
+  rules:
+    - name: automount-sa-token-off
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["xenomit-bots"]
+      exclude:
+        any:
+          - resources:
+              selector:
+                matchLabels: {app.kubernetes.io/name: vault}
+      validate:
+        message: >-
+          Pods in xenomit-bots must set automountServiceAccountToken: false
+          (docs/09 §9.2) — identity comes from projected, audience-scoped
+          tokens only.
+        pattern:
+          spec:
+            automountServiceAccountToken: "false"

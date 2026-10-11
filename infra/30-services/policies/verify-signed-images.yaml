@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: xenomit-verify-ghcr-signatures
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: github-main-workflow-signature
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [xenomit-system, xenomit-bots]
+      verifyImages:
+        - imageReferences: ['ghcr.io/xenomit-do/*']
+          mutateDigest: false
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subject: https://github.com/xenomit-do/xenomit-platform/.github/workflows/images.yml@refs/heads/main
+                    rekor:
+                      url: https://rekor.sigstore.dev

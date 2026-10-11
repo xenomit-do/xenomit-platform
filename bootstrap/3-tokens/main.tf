@@ -148,30 +148,3 @@ resource "terraform_data" "atlantis_restart" {
 
 # Moved to stacks/10-github-token and stacks/30-gitea-extra. Forget them here without
 # deleting anything. Delete these blocks once every machine has been rebuilt from scratch.
-removed {
-  from = vault_kv_secret_v2.github_mirror
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = kubernetes_secret.atlantis_mirror
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = restapi_object.extra_github_mirror
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = gitea_repository_actions_secret.release_github_token
-  lifecycle {
-    destroy = false
-  }
-}

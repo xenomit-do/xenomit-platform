@@ -296,6 +296,14 @@ if ($vaultIp -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { throw "could not determine t
 if ($Ctx['node_cidr'] -notmatch '^\d{1,3}(\.\d{1,3}){3}/\d+$') { throw "could not determine the k3d network CIDR (got '$($Ctx['node_cidr'])')" }
 $Ctx['vault_host_ip'] = $vaultIp
 
+# A cluster built before the stacks layout has resources in the local state of bootstrap/3-tokens
+# that now belong to other stacks (the GitHub token, the mirrors, the release secret). OpenTofu
+# would try to refresh them with providers that stage no longer configures. Say so, plainly.
+$oldState = Join-Path $Repos 'xenomit-platform\bootstrap\3-tokens\terraform.tfstate'
+if ((Test-Path $oldState) -and ((Get-Content $oldState -Raw) -match '"type":\s*"(vault_kv_secret_v2|restapi_object|gitea_repository_actions_secret)"')) {
+  throw "This cluster was built with the previous bootstrap layout and cannot be updated in place: its state still lists resources that moved to other stacks. Run .\bootstrap.ps1 -Reset (everything is rebuilt from the repositories)."
+}
+
 foreach ($line in Read-List (Join-Path $Ops 'stacks.txt')) {
   $state, $path = $line -split '\s+', 2
   if ($state -notin 'local', 'cluster') { throw "ops/stacks.txt: unknown state '$state' in '$line'" }

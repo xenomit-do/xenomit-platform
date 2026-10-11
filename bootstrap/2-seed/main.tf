@@ -67,30 +67,3 @@ resource "gitea_repository_collaborator" "argocd_reader" {
 # Moved to stacks/30-gitea-extra. Forget them here without deleting anything, so an
 # older state cannot destroy those repositories. Delete these blocks once every
 # machine has been rebuilt from scratch.
-removed {
-  from = gitea_repository.extra
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = gitea_repository_branch_protection.extra_main
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = gitea_repository_collaborator.argocd_reader_extra
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = gitea_team_membership.atlantis_owner
-  lifecycle {
-    destroy = false
-  }
-}

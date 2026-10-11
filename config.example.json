@@ -1,0 +1,23 @@
+{
+  "cluster_name": "xenomit",
+  "environment_id": "laptop",
+  "domain": "example.com",
+  "cloudflare_account_id": "REPLACE",
+  "cloudflare_zone_id": "REPLACE",
+  "maintainer_team": "platform-maintainers",
+  "maintainers": [
+    "REPLACE_WITH_GITHUB_LOGIN"
+  ],
+  "atlantis_app_id": "REPLACE",
+  "atlantis_installation_id": "REPLACE",
+  "atlantis_app_key_file": "/home/you/.config/xenomit/atlantis.pem",
+  "github_admin_token_file": "/home/you/.config/xenomit/github-admin.token",
+  "cloudflare_token_file": "/home/you/.config/xenomit/cloudflare.token",
+  "arc_app_id": "REPLACE",
+  "arc_installation_id": "REPLACE",
+  "arc_app_key_file": "/home/you/.config/xenomit/arc.pem",
+  "publication_audits_file": "/home/you/.config/xenomit/publication-audits.json",
+  "deployment_revision": "main",
+  "enable_applications": false,
+  "billing_email": "REPLACE_WITH_ORGANIZATION_BILLING_EMAIL"
+}

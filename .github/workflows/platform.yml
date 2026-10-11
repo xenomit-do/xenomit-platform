@@ -1,0 +1,6 @@
+name: platform
+on: [push, pull_request, workflow_dispatch]
+permissions: {contents: read}
+jobs:
+  platform-check:
+    uses: xenomit-do/xenomit-platform/.github/workflows/platform-check.yml@main

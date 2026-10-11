@@ -1,0 +1,54 @@
+global:
+  networkPolicy: {create: false}
+controller:
+  resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: '1', memory: 1Gi}}
+repoServer:
+  resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {cpu: 500m, memory: 512Mi}}
+server:
+  service: {type: NodePort, nodePortHttp: 30080}
+dex: {enabled: false}
+notifications: {enabled: false}
+redis-ha: {enabled: false}
+configs:
+  params: {server.insecure: true}
+  cm:
+    application.resourceTrackingMethod: annotation
+    timeout.reconciliation: 180s
+    resource.customizations.health.fleet.xenomit.io_XenomitBot: |
+
+      hs = {}
+      if obj.status == nil or obj.status.phase == nil then
+        hs.status = "Progressing"
+        hs.message = "awaiting first reconcile"
+        return hs
+      end
+
+      -- Soft-deleted bots: credentials already destroyed, draining to
+      -- Stopped; the row purges after the retention window (docs/12 §12.4).
+      if obj.status.deletedAtUnixMs ~= nil then
+        hs.status = "Suspended"
+        hs.message = "soft-deleted; purges after retention"
+        return hs
+      end
+
+      local phase = obj.status.phase
+      hs.message = "phase: " .. phase
+
+      if phase == "running" then
+        hs.status = "Healthy"
+      elseif phase == "paused" or phase == "stopped" then
+        hs.status = "Suspended"
+      elseif phase == "needsHuman" then
+        hs.status = "Degraded"
+        if obj.status.needsHuman ~= nil then
+          hs.message = "needs human: " .. obj.status.needsHuman
+        end
+      elseif phase == "failed" or phase == "quarantined"
+          or phase == "invalidConfig" or phase == "needsUpdate" then
+        hs.status = "Degraded"
+      else
+        -- pending, provisioning, armed, starting, draining,
+        -- snapshotting, terminated (transient between epochs)
+        hs.status = "Progressing"
+      end
+      return hs

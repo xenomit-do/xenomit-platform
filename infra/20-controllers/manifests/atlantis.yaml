@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata: {name: atlantis, namespace: ci}
+spec:
+  selector: {app: atlantis}
+  ports: [{name: http, port: 4141, targetPort: 4141}]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: atlantis-data, namespace: ci}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 5Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: atlantis, namespace: ci}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: atlantis}}
+  template:
+    metadata: {labels: {app: atlantis}}
+    spec:
+      serviceAccountName: atlantis
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, runAsNonRoot: true}
+      containers:
+        - name: atlantis
+          image: ghcr.io/runatlantis/atlantis:v0.46.0
+          args: [server]
+          ports: [{containerPort: 4141}]
+          envFrom: [{secretRef: {name: platform-credentials}}]
+          env:
+            - {name: ATLANTIS_GH_APP_KEY_FILE, value: /run/platform/atlantis.pem}
+            - {name: ATLANTIS_ATLANTIS_URL, value: '${atlantis_url}'}
+            - {name: ATLANTIS_GH_HOSTNAME, value: github.com}
+            - {name: ATLANTIS_WRITE_GIT_CREDS, value: 'true'}
+            - {name: ATLANTIS_REPO_ALLOWLIST, value: '${repo_allowlist}'}
+            - {name: ATLANTIS_GH_TEAM_ALLOWLIST, value: '${team_allowlist}'}
+            - {name: ATLANTIS_ALLOW_FORK_PRS, value: 'false'}
+            - {name: ATLANTIS_AUTOMERGE, value: 'true'}
+            - {name: ATLANTIS_CHECKOUT_STRATEGY, value: merge}
+            - {name: ATLANTIS_DEFAULT_TF_DISTRIBUTION, value: opentofu}
+            - {name: ATLANTIS_DEFAULT_TF_VERSION, value: '1.12.6'}
+            - {name: ATLANTIS_REPO_CONFIG, value: /etc/atlantis/repos.json}
+            - {name: ATLANTIS_DATA_DIR, value: /atlantis-data}
+            - {name: ATLANTIS_RESTRICT_FILE_LIST, value: 'true'}
+            - {name: HELM_CACHE_HOME, value: /helm}
+            - {name: HELM_CONFIG_HOME, value: /helm}
+            - {name: HELM_DATA_HOME, value: /helm}
+          volumeMounts:
+            - {name: credentials, mountPath: /run/platform, readOnly: true}
+            - {name: config, mountPath: /etc/atlantis, readOnly: true}
+            - {name: data, mountPath: /atlantis-data}
+            - {name: helm, mountPath: /helm}
+          resources: {requests: {cpu: 200m, memory: 512Mi}, limits: {cpu: '2', memory: 2Gi}}
+          readinessProbe: {httpGet: {path: /healthz, port: 4141}, initialDelaySeconds: 10}
+          livenessProbe: {httpGet: {path: /healthz, port: 4141}, initialDelaySeconds: 30}
+      volumes:
+        - {name: credentials, secret: {secretName: platform-credentials}}
+        - {name: config, configMap: {name: atlantis-config}}
+        - {name: data, persistentVolumeClaim: {claimName: atlantis-data}}
+        - {name: helm, emptyDir: {}}

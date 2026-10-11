@@ -326,6 +326,8 @@ github pat.txt --> Vault secret/infra/github-mirror {username, token}
 - Once `main` of a repository is protected, `bootstrap.ps1` cannot push to it. If your checkout is ahead of
   Gitea, the script pushes the difference to the branch `bootstrap-sync` and prints a warning. Open a pull
   request from that branch. A merged pull request comes back as a fast-forward on the next run.
+- A cluster built before this layout (stacks, `ops/stacks.txt`) cannot be updated in place: its local state
+  still lists resources that moved to other stacks. The script detects it and asks for `-Reset`.
 - A failed `tofu apply` after a manual cluster change can leave objects that OpenTofu does not know about
   ("already exists"). The quickest fix on a local cluster is `-Reset`.
 - The state files contain secrets. Do not copy them off the machine.

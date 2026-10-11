@@ -112,7 +112,9 @@ resource "kubernetes_config_map" "gitea_bootstrap" {
     namespace = kubernetes_namespace.this["git"].metadata[0].name
   }
   data = {
-    "gitea-admin.sh" = file("${path.module}/gitea-admin.sh")
+    # A Windows checkout may have CRLF line endings, and sh rejects the carriage return
+    # after "set -eu". The script has to reach the pod with LF only.
+    "gitea-admin.sh" = replace(file("${path.module}/gitea-admin.sh"), "\r\n", "\n")
   }
 }
 
@@ -129,10 +131,12 @@ resource "kubectl_manifest" "gitea" {
 # Create (or re-sync) the gitops admin inside the pod. Re-runs when its password
 # or the script changes.
 resource "terraform_data" "gitea_admin" {
-  triggers_replace = [sha256(random_password.gitops.result), filesha256("${path.module}/gitea-admin.sh")]
+  triggers_replace = [sha256(random_password.gitops.result), sha256(kubernetes_config_map.gitea_bootstrap.data["gitea-admin.sh"])]
 
+  # tr removes carriage returns inside the pod, so the step does not depend on the line
+  # endings of the file or on how fast the mounted ConfigMap refreshes.
   provisioner "local-exec" {
-    command = "kubectl --context ${var.kube_context} -n git exec deploy/gitea -- sh /bootstrap/gitea-admin.sh"
+    command = "kubectl --context ${var.kube_context} -n git exec deploy/gitea -- sh -c \"tr -d '\\r' < /bootstrap/gitea-admin.sh | sh\""
   }
 
   depends_on = [kubectl_manifest.gitea]

@@ -1,0 +1,49 @@
+name: images
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+concurrency:
+  group: image-promotion
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: xenomit-build
+    timeout-minutes: 120
+    outputs:
+      digests: ${{ steps.images.outputs.digests }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build and publish committed workspace
+        id: images
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3
+          bash scripts/build-images.sh
+  promote:
+    needs: build
+    runs-on: xenomit-platform
+    environment: platform-release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Propose deployment digests
+        env:
+          DEPLOYMENTS_TOKEN: ${{ secrets.DEPLOYMENTS_TOKEN }}
+          IMAGE_DIGESTS: ${{ needs.build.outputs.digests }}
+        run: |
+          test -n "$DEPLOYMENTS_TOKEN" || { echo 'Configure deployment_token_file; see image-promotion runbook.' >&2; exit 1; }
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3
+          python3 scripts/promote-images.py

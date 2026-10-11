@@ -1,0 +1,245 @@
+{
+  "organization": "xenomit-do",
+  "repositories": {
+    "ruffle": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-backpage": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-behavior-engine": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-bot": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-bot-runtime": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-bot-stream": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-botd": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-client": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-core": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-deployments": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-flash-client": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-flash-client-linux": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-game-api": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-mock-game": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-orchestrator": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-packet-client": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-packet-updater": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-platform": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "platform",
+      "atlantis": true,
+      "archived": false,
+      "required_checks": [
+        "platform-check / platform-check"
+      ]
+    },
+    "xenomit-raylib-client": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-server": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-web-panel": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-platform-gitea": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-platform-argocd": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    },
+    "xenomit-platform-gitea-pr-delete-branches": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "atlantis": false,
+      "archived": false,
+      "required_checks": [
+        "source-check / source-check"
+      ]
+    }
+  }
+}

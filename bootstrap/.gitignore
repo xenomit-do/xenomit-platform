@@ -1,6 +1,0 @@
-# Bootstrap state is local and holds every generated password and token.
-**/.terraform/
-**/terraform.tfstate
-**/terraform.tfstate.*
-**/*.tfplan
-**/crash.log

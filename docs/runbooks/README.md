@@ -7,7 +7,6 @@
 - [domain](domain.md)
 - [github apps](github-apps.md)
 - [image promotion](image-promotion.md)
-- [migration](migration.md)
 - [recovery](recovery.md)
 - [repository onboarding](repository-onboarding.md)
 - [runners](runners.md)

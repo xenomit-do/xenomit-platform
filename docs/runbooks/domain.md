@@ -24,10 +24,7 @@ allows the owner email (y.kaan.aydogdu@gmail.com) — visitors get the Access lo
 configured One-Time-PIN (or other) identity provider in the Zero Trust account is required
 to sign in. Origins are plain HTTP inside the cluster: argocd-server (server.insecure),
 the dev-mode Helm Vault service in xenomit-system, openobserve in observability, and
-the web-panel Service in xenomit-system on port 3000. The
-ops/vault Docker Vault is a different deployment; its self-signed server certificate does
-not carry a vault.<domain> SAN, so do not point the tunnel at it without regenerating
-ops/vault/tls SANs or setting noTLSVerify on the origin.
+the web-panel Service in xenomit-system on port 3000.
 
 When adopting a tunnel created in the Cloudflare dashboard, set `existing_tunnel_id`
 in your private bootstrap configuration to its UUID. Bootstrap verifies that tunnel

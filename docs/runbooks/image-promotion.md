@@ -8,4 +8,4 @@ On first publication, make the three GHCR packages public (GitHub package admini
 
 All sibling sources and Flash build dependencies must be present in GitHub. Missing Dockerfiles, source directories or images fail the build instead of deploying mutable tags. Do not publish the proprietary Pepper plugin or secrets: mount runtime assets through the documented local credential setup.
 
-Active admission policies require organization GHCR digest pins and the protected workflow signature. Third-party Vault is exempt from application pod policies and remains isolated by its network policy. Legacy local-registry policies are retained only for migration reference.
+Active admission policies require organization GHCR digest pins and the protected workflow signature. Third-party Vault is exempt from application pod policies and remains isolated by its network policy.

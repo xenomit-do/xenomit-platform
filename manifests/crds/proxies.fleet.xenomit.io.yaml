@@ -151,7 +151,7 @@ spec:
                 description: |-
                   IPs `spec.host` last resolved to (health prober records them); the
                   per-bot egress NetworkPolicy is rendered from the first entry
-                  (ops/k8s/20-bot-egress.template.yaml).
+                  by the operator.
                 items:
                   type: string
                 type: array

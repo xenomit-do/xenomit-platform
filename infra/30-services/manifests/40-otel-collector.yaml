@@ -70,11 +70,9 @@ data:
         collection_interval: 30s
         node_conditions_to_report: [Ready, MemoryPressure, DiskPressure]
         allocatable_types_to_report: [cpu, memory]
-      # Vault /v1/sys/metrics for the sealed-Vault + Vault-down alerts
-      # (docs/09 §9.2a). Vault is a Docker container reached via the
-      # vault.xenomit-system ExternalName; TLS is verified with the vault-ca
-      # ConfigMap (bootstrap step 8 creates it in this namespace too). Vault
-      # must have the telemetry stanza from ops/vault/vault.hcl applied.
+      # Vault /v1/sys/metrics for the sealed-Vault + Vault-down alerts.
+      # Vault is the dev-mode Helm release reached via the vault.xenomit-system
+      # Service; it must expose the telemetry stanza for this scrape to work.
       prometheus:
         config:
           scrape_configs:

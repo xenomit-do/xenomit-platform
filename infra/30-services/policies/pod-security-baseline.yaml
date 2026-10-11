@@ -6,7 +6,7 @@
 # Scope: xenomit-bots, xenomit-system, xenomit-data. The observability and ci
 # namespaces run third-party images (OpenObserve, the collector's hostPort, ARC
 # runner pods) that legitimately need different properties — they're out of
-# scope by design (ci/policies/README.md §Scope). Nothing in the three in-scope
+# scope by design. Nothing in the three in-scope
 # namespaces needs hostNetwork/hostPort, so those are not separately listed.
 #
 # Pattern idioms used below (Kyverno validate patterns):

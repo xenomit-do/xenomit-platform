@@ -1,7 +1,7 @@
 # Phase 9 admission policy: every container in the xenomit workload
 # namespaces must declare cpu+memory requests AND limits (docs/09 §9.2,
 # docs/11 §11.3 resource budget). The fleet quota in
-# ops/k8s/20-resource-limits.yaml bounds the namespace total; this rule bounds
+# manifests/platform/20-resource-limits.yaml bounds the namespace total; this rule bounds
 # the individual pod — an unbounded pod can still starve 49 siblings inside
 # the quota.
 #

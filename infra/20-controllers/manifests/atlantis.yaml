@@ -41,6 +41,7 @@ spec:
             - {name: ATLANTIS_GH_TEAM_ALLOWLIST, value: '${team_allowlist}'}
             - {name: ATLANTIS_ALLOW_FORK_PRS, value: 'false'}
             - {name: ATLANTIS_AUTOMERGE, value: 'true'}
+            - {name: ATLANTIS_GH_ALLOW_MERGEABLE_BYPASS_APPLY, value: 'true'}
             - {name: ATLANTIS_CHECKOUT_STRATEGY, value: merge}
             - {name: ATLANTIS_DEFAULT_TF_DISTRIBUTION, value: opentofu}
             - {name: ATLANTIS_DEFAULT_TF_VERSION, value: '1.12.6'}

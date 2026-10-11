@@ -20,3 +20,5 @@ Kubernetes state locks remain a separate protection. Merge or revert applied PRs
 Webhook downtime: start laptop/Docker/cloudflared, inspect GitHub Settings > Webhooks > Recent
 deliveries, select failed relevant deliveries and Redeliver. Review current PR revisions and replan
 before applying; GitHub does not guarantee replay of every event while a laptop is offline.
+
+The required `atlantis/apply` status is handled using `ATLANTIS_GH_ALLOW_MERGEABLE_BYPASS_APPLY=true`, as documented in https://www.runatlantis.io/docs/command-requirements. This resolves the circular apply check while preserving other required CI and mergeability gates.

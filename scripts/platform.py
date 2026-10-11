@@ -78,8 +78,11 @@ def pages(path, config):
 
 def prepare(source, destination):
     c = read(source)
-    if 'REPLACE' in json.dumps(c) or c['domain'] == 'example.com':
-        raise Failure('Fill in config.example.json before bootstrap')
+    unresolved = [key for key, value in c.items() if 'REPLACE' in json.dumps(value)]
+    if c['domain'] == 'example.com':
+        unresolved.append('domain')
+    if unresolved:
+        raise Failure('Unresolved bootstrap configuration fields: ' + ', '.join(sorted(set(unresolved))))
     for field in ('cluster_name', 'environment_id', 'maintainer_team'):
         if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,49}', c[field]):
             raise Failure(f'Invalid {field}')

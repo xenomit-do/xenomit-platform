@@ -5,13 +5,7 @@
 *.plan
 crash.log
 
-# Local secrets (also skipped by the Gitea publish step in ops/bootstrap.ps1)
-ops/vault/cluster-keys.json
-ops/vault/tls/*.key
-ops/vault/tls/*.srl
-ops/k8s/rendered/
-
-# Unix bootstrap runtime state and credentials
+# Bootstrap runtime state and credentials
 .xenomit/
 runtime.auto.tfvars.json
 *.pem

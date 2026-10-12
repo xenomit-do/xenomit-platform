@@ -140,7 +140,7 @@ def workspace(catalog_path, directory, output):
             continue
         origin = run(['git', 'remote', 'get-url', 'origin'], cwd=target, check=False)
         if origin not in (url, url[:-4], f'git@github.com:{org}/{name}.git'):
-            print(f'{name}: origin differs; checkout unchanged, see migration runbook', file=sys.stderr)
+            print(f'{name}: origin differs; checkout unchanged, see docs/runbooks/repository-onboarding.md', file=sys.stderr)
         elif run(['git', 'status', '--porcelain'], cwd=target):
             print(f'{name}: dirty checkout preserved', file=sys.stderr)
         else:
@@ -235,7 +235,7 @@ def audit_private(name, remote, c):
     branch = remote['default_branch']
     head = gh(f'/repos/xenomit-do/{name}/commits/{branch}', c)['sha']
     if not audit or not audit.get('reviewed_private_data') or not audit.get('secret_scan_passed') or audit.get('github_head') != head:
-        raise Failure(f'{name}: private publication requires a current secret scan and human private-data review; see migration.md')
+        raise Failure(f'{name}: private publication requires a current secret scan and human private-data review; see docs/runbooks/repository-onboarding.md')
 
 
 def import_external(stack, config_path, catalog_path):

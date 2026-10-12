@@ -41,7 +41,7 @@ resource "github_repository" "managed" {
   has_wiki               = true
   archive_on_destroy     = true
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false # TEMPORARY: retiring Gitea repos; restored in follow-up PR
     precondition {
       condition = !contains(data.github_repositories.private.names, each.key) || try(
         var.config.publication_audits[each.key].reviewed_private_data &&

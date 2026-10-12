@@ -16,4 +16,4 @@ The botd image build consumes immutable sibling commit pins in `xenomit-botd/ci/
 
 Runner groups and admission policy are enforced in OpenTofu. After changing `infra/10-external/automation.tf` or `infra/30-services/policies/verify-signed-images.yaml`, apply the external and services stacks so `xenomit-build` permits the three source image workflows, `xenomit-platform` permits the deployments promotion workflow, and Kyverno accepts signatures only from the three source `image.yml@refs/heads/main` identities (not the platform repo).
 
-Active admission policies require organization GHCR digest pins and a signature from one of the trusted source workflows. Third-party Vault is exempt from application pod policies and remains isolated by its network policy. Legacy local-registry policies are retained only for migration reference.
+Active admission policies require organization GHCR digest pins and a signature from one of the trusted source workflows. Third-party Vault is exempt from application pod policies and remains isolated by its network policy.

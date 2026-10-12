@@ -1,7 +1,7 @@
 # Phase 9 admission policy: required labels (docs/09 §9.2). Labels are load-
 # bearing here, not decoration:
 #   * xenomit.io/bot selects every per-bot NetworkPolicy
-#     (ops/k8s/20-bot-egress.template.yaml) — a bot pod without it silently
+#     — a bot pod without it silently
 #     falls back to namespace-wide egress rules;
 #   * xenomit.io/tenant drives telemetry attribution (docs/06 §6.3);
 #   * xenomit.io/epoch is how the fencing/lease machinery tells epochs apart

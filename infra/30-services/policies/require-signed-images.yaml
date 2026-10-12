@@ -7,7 +7,7 @@
 #
 # Scope: Pods in xenomit-bots and xenomit-system (the namespaces that run OUR
 # images). xenomit-data (postgres:16-alpine), observability and ci run
-# third-party images we do not sign — see policies/README.md.
+# third-party images we do not sign.
 #
 # Exemption: pods labeled xenomit.io/verify are excluded. Anyone who can create pods in xenomit-bots
 # already holds equivalent trust (the operator), and the other four policies
@@ -18,7 +18,7 @@ kind: ClusterPolicy
 metadata:
   name: xenomit-require-signed-image
   annotations:
-    # After the kyverno chart itself in the Argo sync (ops/argocd/apps/15-admission.yaml).
+    # After the kyverno chart itself in the Argo sync.
     argocd.argoproj.io/sync-wave: "5"
     policies.kyverno.io/title: Require digest-pinned ghcr images
     policies.kyverno.io/category: Supply Chain Security

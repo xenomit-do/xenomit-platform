@@ -201,27 +201,7 @@
         "source-check / source-check"
       ]
     },
-    "xenomit-platform-gitea": {
-      "default_branch": "main",
-      "workspace": true,
-      "ci_profile": "source",
-      "atlantis": false,
-      "archived": false,
-      "required_checks": [
-        "source-check / source-check"
-      ]
-    },
     "xenomit-platform-argocd": {
-      "default_branch": "main",
-      "workspace": true,
-      "ci_profile": "source",
-      "atlantis": false,
-      "archived": false,
-      "required_checks": [
-        "source-check / source-check"
-      ]
-    },
-    "xenomit-platform-gitea-pr-delete-branches": {
       "default_branch": "main",
       "workspace": true,
       "ci_profile": "source",

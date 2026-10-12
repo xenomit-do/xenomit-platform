@@ -8,7 +8,8 @@ from their official releases; the script checks requirements and does not modify
 2. Publish this implementation, including trusted reusable workflows, on xenomit-platform main before enabling the shared policy. Clone xenomit-platform. Copy config.example.json to ~/.config/xenomit/config.json.
 3. Fill IDs/domain/billing email/maintainers and credential-file paths. chmod 600 credential files;
    chmod 700 ~/.config/xenomit. Keep everything outside Git.
-4. Run bash scripts/inventory.sh ~/src/xenomit and complete migration/publication reviews.
+4. Inventory the workspace and complete publication reviews for any private repositories:
+   python3 scripts/platform.py inventory repositories.json ~/src/xenomit ~/src/xenomit/.xenomit/inventory.json
 5. Run bash bootstrap.sh --workspace ~/src/xenomit. It checks Docker, clones full history, creates
    k3d, claims environment ownership, initializes shared state, imports external objects and applies
    projects in infra/stacks.txt. API credentials stay out of arguments/logs.

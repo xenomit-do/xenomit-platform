@@ -17,4 +17,4 @@ Rust validation used an isolated copy excluding the original missing e2e workspa
 
 Not exercised: live GitHub/Cloudflare import and publication, real image builds/signing/pulls, runner registration, signed webhook delivery, Atlantis plan/apply/automerge, cluster teardown/rebuild and migration to another machine. Complete those acceptance drills with external credentials/domain and committed sources. No GitHub pushes, public visibility changes, archival, or live cluster applies were performed during local implementation.
 
-Existing legacy local edits were preserved. Legacy Gitea/PowerShell definitions remain as migration references, outside the active stack list. GitHub history/publication and retiring old repositories are explicit migration operations, not consequences of running local tests.
+Existing legacy local edits were preserved. GitHub history/publication and retiring old repositories are explicit operations, not consequences of running local tests.

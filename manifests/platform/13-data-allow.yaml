@@ -1,6 +1,5 @@
 # xenomit-data (Postgres): the control plane and the collector may dial 5432.
-# Host loopback access is a separate allow in
-# ops/k8s/12-node-cidr-policies.template.yaml. Nothing may leave except DNS.
+# Nothing may leave except DNS.
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

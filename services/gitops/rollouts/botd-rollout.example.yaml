@@ -1,5 +1,5 @@
 # BotRollout — normal lane (docs/04 §4.1, docs/07 §7.3).
-# Created/updated by the images workflow when a new botd digest lands
+# Reference fleet/botd-image.json after botd image.yml publishes a new digest
 # (rendered to botd-rollout.rendered.yaml), or by hand / the panel's
 # Rollback button. The RolloutController executes canary → waves under
 # the concurrency caps; Kubernetes never rolls bot pods directly.

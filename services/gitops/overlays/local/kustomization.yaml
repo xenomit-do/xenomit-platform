@@ -3,7 +3,7 @@
 #
 # Images are pinned BY DIGEST (docs/07 §7.2: "promote by digest, never by
 # mutable tag"). The images: entries below are rewritten in place by the
-# images workflow (ci/workflows/images.yml) — keep the field order
+# deployments digest promotion — keep the field order
 # name → newName → digest; the pipeline's sed depends on it.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

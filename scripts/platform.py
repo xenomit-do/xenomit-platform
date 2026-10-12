@@ -97,11 +97,6 @@ def prepare(source, destination):
         c[stem] = p.read_text().strip()
         if not c[stem]:
             raise Failure(f'{p.name} is empty')
-    if c.get('deployment_token_file'):
-        token_path = Path(c.pop('deployment_token_file')).expanduser()
-        if token_path.stat().st_mode & 0o077:
-            raise Failure('deployment token must have mode 600')
-        c['deployment_token'] = token_path.read_text().strip()
     audit_path = Path(c.pop('publication_audits_file')).expanduser()
     c['publication_audits'] = read(audit_path) if audit_path.exists() else {}
     c['maintainer_ids'] = [gh('/users/' + urllib.parse.quote(u, safe=''), c)['id'] for u in c['maintainers']]
@@ -280,8 +275,6 @@ def import_external(stack, config_path, catalog_path):
     environment = gh('/repos/xenomit-do/xenomit-platform/environments/platform-admin', c, optional=True)
     if environment:
         import_one(stack, config_path, known, 'github_repository_environment.platform_admin', 'xenomit-platform:platform-admin')
-    if gh('/repos/xenomit-do/xenomit-platform/environments/platform-release', c, optional=True):
-        import_one(stack, config_path, known, 'github_repository_environment.platform_release', 'xenomit-platform:platform-release')
     for group in gh('/orgs/xenomit-do/actions/runner-groups', c)['runner_groups']:
         if group['name'] in ('xenomit-build', 'xenomit-platform'):
             label = group['name'].removeprefix('xenomit-')

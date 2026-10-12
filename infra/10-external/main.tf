@@ -10,6 +10,7 @@ locals {
     argocd  = "http://argocd-server.argocd.svc.cluster.local"
     vault   = "http://vault.xenomit-system.svc.cluster.local:8200"
     observe = "http://openobserve.observability.svc.cluster.local:5080"
+    panel   = "http://web-panel.xenomit-system.svc.cluster.local:3000"
   }
   access_email = "y.kaan.aydogdu@gmail.com"
 }

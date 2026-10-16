@@ -210,6 +210,16 @@
       "required_checks": [
         "source-check / source-check"
       ]
+    },
+    "xenomit-bot-gui": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "required_checks": [
+        "source-check / source-check"
+      ],
+      "atlantis": false,
+      "archived": false
     }
   }
 }

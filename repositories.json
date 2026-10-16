@@ -211,7 +211,27 @@
         "source-check / source-check"
       ]
     },
+    "xenomit-tooling-argocd": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "required_checks": [
+        "source-check / source-check"
+      ],
+      "atlantis": false,
+      "archived": false
+    },
     "xenomit-bot-gui": {
+      "default_branch": "main",
+      "workspace": true,
+      "ci_profile": "source",
+      "required_checks": [
+        "source-check / source-check"
+      ],
+      "atlantis": false,
+      "archived": false
+    },
+    "xenomit-tooling-guidelines": {
       "default_branch": "main",
       "workspace": true,
       "ci_profile": "source",

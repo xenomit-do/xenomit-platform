@@ -25,7 +25,9 @@ class WorkflowTests(unittest.TestCase):
                 runtime.onboard(path/'catalog.json',path/'config.json',template)
                 self.assertEqual(api.call_count,1)
     def test_no_workflow_uses_hosted_compute_or_artifact_uploads(self):
+        # source-check is the one deliberately GitHub-hosted workflow (free runners for the shared gate)
         for f in (ROOT/'.github/workflows').glob('*.yml'):
+            if f.name=='source-check.yml': continue
             text=f.read_text()
             self.assertNotIn('runs-on: ubuntu',text)
             self.assertNotIn('runs-on: windows',text)

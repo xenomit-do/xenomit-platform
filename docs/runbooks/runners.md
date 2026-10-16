@@ -11,8 +11,9 @@ private/LAN/cluster destinations. Do not weaken this for fork jobs. GitHub's for
 a maintainer approval BEFORE allocating a runner; review the fork's workflow/code first. It receives no
 administration credentials. Keep CI tokens read-only and checkout persist-credentials=false.
 
-Jobs target xenomit-build or xenomit-platform explicitly. No ubuntu-latest fallback. Self-hosted compute
-does not consume GitHub-hosted minutes. Avoid upload-artifact/cache actions for local build data.
+The shared source-check gate runs on free GitHub-hosted runners (ubuntu-latest); it holds no secrets and
+still uses the fork-ci/internal-ci environments. Every other job targets xenomit-build or xenomit-platform
+explicitly, with no ubuntu-latest fallback. Self-hosted compute does not consume GitHub-hosted minutes. Avoid upload-artifact/cache actions for local build data.
 Publishing OCI images to GHCR is separately governed by GitHub Packages limits.
 
 Rotate ARC keys using credential-rotation.md. Rebuild stale runner images regularly. minRunners=1 per

@@ -27,6 +27,52 @@ provider "github" {
 provider "cloudflare" {
   api_token = var.config.cloudflare_token
 }
+# These catalogued repositories and settings predate this external stack.
+# Import them so Atlantis adopts the existing GitHub resources instead of recreating them.
+import {
+  to = github_repository.managed["xenomit-bot-gui"]
+  id = "xenomit-bot-gui"
+}
+import {
+  to = github_repository.managed["xenomit-tooling-argocd"]
+  id = "xenomit-tooling-argocd"
+}
+import {
+  to = github_repository.managed["xenomit-tooling-guidelines"]
+  id = "xenomit-tooling-guidelines"
+}
+import {
+  to = github_branch_default.managed["xenomit-bot-gui"]
+  id = "xenomit-bot-gui"
+}
+import {
+  to = github_branch_default.managed["xenomit-tooling-argocd"]
+  id = "xenomit-tooling-argocd"
+}
+import {
+  to = github_branch_default.managed["xenomit-tooling-guidelines"]
+  id = "xenomit-tooling-guidelines"
+}
+import {
+  to = github_branch_protection.managed["xenomit-bot-gui"]
+  id = "xenomit-bot-gui:main"
+}
+import {
+  to = github_repository_environment.fork_ci["xenomit-bot-gui"]
+  id = "xenomit-bot-gui:fork-ci"
+}
+import {
+  to = github_repository_environment.fork_ci["xenomit-tooling-argocd"]
+  id = "xenomit-tooling-argocd:fork-ci"
+}
+import {
+  to = github_team_repository.maintainers["xenomit-bot-gui"]
+  id = "20039670:xenomit-bot-gui"
+}
+import {
+  to = github_team_repository.maintainers["xenomit-tooling-argocd"]
+  id = "20039670:xenomit-tooling-argocd"
+}
 resource "github_repository" "managed" {
   for_each               = local.repos
   name                   = each.key
@@ -92,7 +138,10 @@ resource "github_team_membership" "maintainers" {
   role     = "maintainer"
 }
 resource "github_team_repository" "maintainers" {
-  for_each   = local.repos
+  # This legacy key redirects to xenomit-bot-gui; its canonical entry owns team access.
+  for_each = {
+    for name, repo in local.repos : name => repo if name != "xenomit-bot"
+  }
   team_id    = github_team.maintainers.id
   repository = github_repository.managed[each.key].name
   permission = "maintain"

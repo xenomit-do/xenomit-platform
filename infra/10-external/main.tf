@@ -138,7 +138,10 @@ resource "github_team_membership" "maintainers" {
   role     = "maintainer"
 }
 resource "github_team_repository" "maintainers" {
-  for_each   = local.repos
+  # This legacy key redirects to xenomit-bot-gui; its canonical entry owns team access.
+  for_each = {
+    for name, repo in local.repos : name => repo if name != "xenomit-bot"
+  }
   team_id    = github_team.maintainers.id
   repository = github_repository.managed[each.key].name
   permission = "maintain"
